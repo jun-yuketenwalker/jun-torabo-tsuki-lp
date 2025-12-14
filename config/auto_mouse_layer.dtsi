@@ -1,0 +1,13 @@
+#include <input/processors.dtsi>
+#include <zephyr/dt-bindings/input/input-event-codes.h>
+
+/ {
+    zip_temp_layer: zip_temp_layer {
+        compatible = "zmk,input-processor-temp-layer";
+        #input-processor-cells = <2>;
+
+        /* 必要なら後で調整可能 */
+        // require-prior-idle-ms = <200>;
+        // excluded-positions = <16 17 18>;
+    };
+};

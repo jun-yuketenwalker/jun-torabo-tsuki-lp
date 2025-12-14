@@ -2,20 +2,29 @@
 #include <input/processors.dtsi>
 #include <dt-bindings/zmk/input_transform.h>
 
+/* トラックボール設定（右手側） */
 &trackball_listener {
+
+    /* 基本の input-processors チェーン */
     input-processors =
         <&zip_xy_transform (INPUT_TRANSFORM_X_INVERT | INPUT_TRANSFORM_Y_INVERT)>,
-        <&zip_temp_layer 4 800>;
+        /* layer4 を 800ms 活性化 */
+        <&zip_temp_layer 4 800>
+    ;
+
+    /* ───────── layer5 = オートスクロール ───────── */
+    scroller {
+        layers = <5>;
+
+        /* XY → Scroll に変換 */
+        input-processors = <&zip_xy_to_scroll_mapper>;
+
+        /* この後も上位チェーンを継続 */
+        process-next;
+    };
 };
 
-&size_s_transform {
-    col-offset = <7>;
-};
-
-&size_m_transform {
-    col-offset = <7>;
-};
-
-&size_l_transform {
-    col-offset = <7>;
-};
+/* サイズ変換（元のまま） */
+&size_s_transform { col-offset = <7>; };
+&size_m_transform { col-offset = <7>; };
+&size_l_transform { col-offset = <7>; };
