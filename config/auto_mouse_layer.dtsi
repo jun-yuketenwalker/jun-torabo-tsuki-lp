@@ -1,13 +1,46 @@
 #include <input/processors.dtsi>
-#include <zephyr/dt-bindings/input/input-event-codes.h>
 
 / {
-    zip_temp_layer: zip_temp_layer {
+    // -----------------------------------------------------------------
+    // 1. トラックボールの動きでAMLを起動・維持するためのプロセッサ
+    // -----------------------------------------------------------------
+    auto_mouse_layer_proc: auto_mouse_layer_proc {
+        // zip_temp_layer のカスタムインスタンス
         compatible = "zmk,input-processor-temp-layer";
-        #input-processor-cells = <2>;
-
-        /* 必要なら後で調整可能 */
-        // require-prior-idle-ms = <200>;
-        // excluded-positions = <16 17 18>;
+        
+        // トラックボールの動き（ABS_X, ABS_Y）で発動
+        input-codes = <INPUT_PROCESSOR_INPUT_CODE_ABS_X INPUT_PROCESSOR_INPUT_CODE_ABS_Y>;
+        
+        // マウスレイヤー（レイヤー5を想定）を有効化
+        layer = <5>; 
+        
+        // 動作後のAML維持時間 (例: 1秒)
+        timeout-ms = <1000>;
+        
+        // 【注意点】非マウスキーによる強制解除機能は、この設定では使用しません。
+        // 強制解除は、このプロセッサがタイムアウトした後に自動で行われます。
     };
+
+    // -----------------------------------------------------------------
+    // 2. マウスボタン（クリック）でAMLのタイムアウトをリセットし延長するためのプロセッサ
+    // -----------------------------------------------------------------
+    mouse_button_extend_proc: mouse_button_extend_proc {
+        // zip_temp_layer のカスタムインスタンス
+        compatible = "zmk,input-processor-temp-layer";
+        
+        // マウスボタン（BTN_LEFT, BTN_RIGHT, BTN_MIDDLE）のイベントで発動
+        input-codes = <INPUT_PROCESSOR_INPUT_CODE_BTN_LEFT INPUT_PROCESSOR_INPUT_CODE_BTN_RIGHT INPUT_PROCESSOR_INPUT_CODE_BTN_MIDDLE>;
+        
+        // マウスレイヤー（レイヤー5を想定）を有効化
+        layer = <5>; 
+        
+        // クリック後のAML維持時間。トラックボールの動きよりも長めに設定することで延長効果を出す。
+        timeout-ms = <2000>; // 例: 2秒に設定
+        
+        // 【重要】トラックボールで発動したAML（レイヤー5）がアクティブなときに、
+        // マウスボタンが押されると、このプロセッサが発動し、タイムアウトが2秒にリセットされます。
+    };
+
+    // 【オートスクロールの削除】
+    // オートスクロールに関する記述や、非マウスキー解除に関する複雑なロジックはすべて削除・除外しました。
 };

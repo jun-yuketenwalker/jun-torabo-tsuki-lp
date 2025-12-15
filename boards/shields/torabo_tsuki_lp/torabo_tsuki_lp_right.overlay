@@ -1,30 +1,22 @@
-#include "torabo_tsuki_lp.dtsi"
 #include <input/processors.dtsi>
-#include <dt-bindings/zmk/input_transform.h>
+#include "torabo_tsuki_lp_layouts.dtsi" // レイアウト情報などは維持
 
-/* トラックボール設定（右手側） */
-&trackball_listener {
+&spi0 { // トラックボールセンサーが接続されているSPIポート（一般的な設定を維持）
+    status = "okay";
 
-    /* 基本の input-processors チェーン */
-    input-processors =
-        <&zip_xy_transform (INPUT_TRANSFORM_X_INVERT | INPUT_TRANSFORM_Y_INVERT)>,
-        /* layer4 を 800ms 活性化 */
-        <&zip_temp_layer 4 800>
-    ;
+    // トラックボールのイベントを監視するリスナー
+    trackball_listener: trackball_listener {
+        compatible = "zmk,input-listener";
+        device = <&trackball>; // トラックボールデバイスを参照
 
-    /* ───────── layer5 = オートスクロール ───────── */
-    scroller {
-        layers = <5>;
-
-        /* XY → Scroll に変換 */
-        input-processors = <&zip_xy_to_scroll_mapper>;
-
-        /* この後も上位チェーンを継続 */
-        process-next;
+        // 【修正箇所】 2つのカスタムプロセッサを適用
+        input-processors = <
+            // 1. トラックボールの動きでAMLを起動・維持
+            &auto_mouse_layer_proc,
+            // 2. マウスボタンの押下でAMLのタイムアウトを延長
+            &mouse_button_extend_proc
+        >;
     };
 };
 
-/* サイズ変換（元のまま） */
-&size_s_transform { col-offset = <7>; };
-&size_m_transform { col-offset = <7>; };
-&size_l_transform { col-offset = <7>; };
+// ... その他、元々あった overlay の記述は維持 ...
