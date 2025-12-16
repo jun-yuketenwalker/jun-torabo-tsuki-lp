@@ -2,21 +2,26 @@
 #include <input/processors.dtsi>
 #include <dt-bindings/zmk/input_transform.h>
 
+/*
+ * トラックボール入力リスナー
+ *
+ * - 通常時：
+ *   XY 反転付きマウス移動
+ *   トラックボール操作で AutoMouseLayer（layer4）に一時遷移
+ *
+ * - layer5：
+ *   トラックボール XY → 縦 / 横スクロール
+ */
 &trackball_listener {
-    /* ===== デフォルト動作 =====
-     * - XY 反転
-     * - トラックボール操作で AutoMouseLayer（layer4）を一時的に有効化
-     */
+    /* ===== デフォルト（通常動作） ===== */
     input-processors = <
         &zip_xy_transform (INPUT_TRANSFORM_X_INVERT | INPUT_TRANSFORM_Y_INVERT)
         &zip_temp_layer 4 800
     >;
 
-    /* ===== スクロール専用レイヤー =====
-     * layer5 にいる間だけ
-     * トラックボール XY → 縦 / 横スクロール
-     */
+    /* ===== スクロール専用レイヤー ===== */
     scroller {
+        compatible = "zmk,input-processor-layer";
         layers = <5>;
         input-processors = <
             &zip_xy_to_scroll_mapper 0
@@ -24,6 +29,7 @@
     };
 };
 
+/* ===== トラックボールサイズ別補正 ===== */
 &size_s_transform {
     col-offset = <7>;
 };
