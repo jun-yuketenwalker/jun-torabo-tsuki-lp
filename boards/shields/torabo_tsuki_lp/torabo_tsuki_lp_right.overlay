@@ -3,25 +3,27 @@
 #include <dt-bindings/zmk/input_transform.h>
 
 /*
- * torabo-tsuki-lp (right)
+ * - default_layer: 通常のマウス移動 + AutoMouseLayer(layer4)
+ *   ※ layer5 は除外して、スクロール設定と競合しないようにする
  *
- * - 通常時：マウス移動 + AutoMouseLayer (layer4)
- * - layer5：トラックボールでスクロール
+ * - scroller: layer5 の間だけ XY -> スクロール
  */
 &trackball_listener {
 
-    /* ===== デフォルト動作 ===== */
+    /* ===== デフォルト動作（layer5以外） ===== */
     default_layer {
         compatible = "zmk,input-processor-layer";
 
-        /* layers を書かない = 全レイヤー対象 */
+        /* ここが重要：layers を必ず書く（layer5は除外） */
+        layers = <0 1 2 3 4 6 7 8 9>;
+
         input-processors = <
             &zip_xy_transform (INPUT_TRANSFORM_X_INVERT | INPUT_TRANSFORM_Y_INVERT)
             &zip_temp_layer 4 800
         >;
     };
 
-    /* ===== スクロール専用レイヤー ===== */
+    /* ===== スクロール専用（layer5） ===== */
     scroller {
         compatible = "zmk,input-processor-layer";
         layers = <5>;
@@ -32,14 +34,6 @@
 };
 
 /* ===== ボールサイズ補正 ===== */
-&size_s_transform {
-    col-offset = <7>;
-};
-
-&size_m_transform {
-    col-offset = <7>;
-};
-
-&size_l_transform {
-    col-offset = <7>;
-};
+&size_s_transform { col-offset = <7>; };
+&size_m_transform { col-offset = <7>; };
+&size_l_transform { col-offset = <7>; };
