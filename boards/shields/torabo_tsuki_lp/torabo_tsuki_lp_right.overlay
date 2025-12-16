@@ -3,15 +3,25 @@
 #include <dt-bindings/zmk/input_transform.h>
 
 &trackball_listener {
-    input-processors =<
-         &zip_xy_transform (INPUT_TRANSFORM_X_INVERT | INPUT_TRANSFORM_Y_INVERT)
-         &zip_temp_layer 4 800 
-    
-     Auto-scroll {
-         layers = <5>;
-         input-processors = <&zip_xy_to_scroll_mapper>;
+    /* ===== デフォルト動作 =====
+     * - XY 反転
+     * - トラックボール操作で AutoMouseLayer（layer4）を一時的に有効化
+     */
+    input-processors = <
+        &zip_xy_transform (INPUT_TRANSFORM_X_INVERT | INPUT_TRANSFORM_Y_INVERT)
+        &zip_temp_layer 4 800
+    >;
+
+    /* ===== スクロール専用レイヤー =====
+     * layer5 にいる間だけ
+     * トラックボール XY → 縦 / 横スクロール
+     */
+    scroller {
+        layers = <5>;
+        input-processors = <
+            &zip_xy_to_scroll_mapper 0
+        >;
     };
-     >;
 };
 
 &size_s_transform {
