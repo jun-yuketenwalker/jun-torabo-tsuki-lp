@@ -8,8 +8,12 @@
         <&zip_temp_layer 4 800>;
     
     // レイヤー5でスクロールモードに切り替え
-    layers = <5>;
-    input-processors-overrides = <&zip_xy_to_scroll_mapper>;
+    input-processors-layer-overrides {
+        compatible = "zmk,input-processors-layer-overrides";
+        5 {
+            input-processors = <&zip_xy_to_scroll_mapper>;
+        };
+    };
 };
 
 &size_s_transform {
