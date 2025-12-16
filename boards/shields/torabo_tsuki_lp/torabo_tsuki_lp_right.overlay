@@ -3,21 +3,23 @@
 #include <dt-bindings/zmk/input_transform.h>
 
 /*
- * トラックボール入力リスナー
+ * torabo-tsuki-lp (right)
  *
- * - 通常時：
- *   XY 反転付きマウス移動
- *   トラックボール操作で AutoMouseLayer（layer4）に一時遷移
- *
- * - layer5：
- *   トラックボール XY → 縦 / 横スクロール
+ * - 通常時：マウス移動 + AutoMouseLayer (layer4)
+ * - layer5：トラックボールでスクロール
  */
 &trackball_listener {
-    /* ===== デフォルト（通常動作） ===== */
-    input-processors = <
-        &zip_xy_transform (INPUT_TRANSFORM_X_INVERT | INPUT_TRANSFORM_Y_INVERT)
-        &zip_temp_layer 4 800
-    >;
+
+    /* ===== デフォルト動作 ===== */
+    default_layer {
+        compatible = "zmk,input-processor-layer";
+
+        /* layers を書かない = 全レイヤー対象 */
+        input-processors = <
+            &zip_xy_transform (INPUT_TRANSFORM_X_INVERT | INPUT_TRANSFORM_Y_INVERT)
+            &zip_temp_layer 4 800
+        >;
+    };
 
     /* ===== スクロール専用レイヤー ===== */
     scroller {
@@ -29,7 +31,7 @@
     };
 };
 
-/* ===== トラックボールサイズ別補正 ===== */
+/* ===== ボールサイズ補正 ===== */
 &size_s_transform {
     col-offset = <7>;
 };
