@@ -5,21 +5,15 @@
 &trackball_listener {
     input-processors =
         <&zip_xy_transform (INPUT_TRANSFORM_X_INVERT | INPUT_TRANSFORM_Y_INVERT)>,
-        <&zip_temp_layer 4 800>;  
+        <&zip_temp_layer 4 800>;
     
     // レイヤー5でスクロールモードに切り替え（スピードを1/2に）
     scroll_layer {
         layers = <5>;
         input-processors = 
-            <&zip_scroll_scaler 1 2>,  // スクロールを半分の速度に
+            <&zip_scroll_scaler 1 2>,
             <&zip_xy_to_scroll_mapper>;
     };
-};
-
-&zip_temp_layer {
-    // マウスボタンのキーポジションを除外（クリック時にタイムアウトリセット）
-    // レイヤー4のマウスボタン位置に合わせて調整
-    excluded-positions = <45 46 47>;  // レイヤー4の &mkp MB1, MB3, MB2 の位置
 };
 
 &size_s_transform {
