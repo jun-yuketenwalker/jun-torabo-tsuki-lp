@@ -13,8 +13,9 @@
     };
 };
 
-&zip_temp_layer {
-    excluded-positions = <45 46 47>;
+// マウスボタンクリック時もタイムアウトを延長
+&mkp_input_listener {
+    input-processors = <&zip_temp_layer 4 800>;
 };
 
 &size_s_transform {
