@@ -2,29 +2,14 @@
 #include <input/processors.dtsi>
 #include <dt-bindings/zmk/input_transform.h>
 
-/ {
-    // カスタムスクロールスケーラーを定義
-    custom_scroll_scaler: custom_scroll_scaler {
-        compatible = "zmk,input-processor-scaler";
-        #input-processor-cells = <0>;
-        type = <INPUT_EV_REL>;
-        codes = <INPUT_REL_WHEEL>, <INPUT_REL_HWHEEL>;
-        scale-multiplier = <1>;
-        scale-divisor = <2>;  // スクロールを1/2の速度に
-    };
-};
-
 &trackball_listener {
     input-processors =
         <&zip_xy_transform (INPUT_TRANSFORM_X_INVERT | INPUT_TRANSFORM_Y_INVERT)>,
         <&zip_temp_layer 4 800>;
     
-    // レイヤー5でスクロールモードに切り替え
     scroll_layer {
         layers = <5>;
-        input-processors = 
-            <&custom_scroll_scaler>,
-            <&zip_xy_to_scroll_mapper>;
+        input-processors = <&zip_xy_to_scroll_mapper>;
     };
 };
 
