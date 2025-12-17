@@ -13,11 +13,6 @@
     };
 };
 
-// マウスボタンクリック時もタイムアウトを延長
-&mkp_input_listener {
-    input-processors = <&zip_temp_layer 4 800>;
-};
-
 &size_s_transform {
     col-offset = <7>;
 };
