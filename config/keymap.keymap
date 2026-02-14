@@ -59,11 +59,11 @@
 
         Auto_Mouse {
             bindings = <
-&trans  &trans  &trans    &trans    &trans    &trans                  &trans  &trans    &trans    &trans    &trans  &trans
-&trans  &trans  &trans    &trans    &trans    &trans                  &trans  &trans    &trans    &trans    &trans  &trans
-&trans  &trans  &mkp MB2  &mkp MB3  &mkp MB1  &trans  &trans  &trans  &trans  &mkp MB1  &mkp MB3  &mkp MB2  &trans  &trans
-&trans  &trans  &mkp MB5  &trans    &mkp MB4  &trans  &trans  &trans  &trans  &mkp MB4  &trans    &mkp MB5  &trans  &trans
-&trans  &trans  &trans    &trans    &trans    &trans  &trans  &trans  &trans  &trans    &trans    &trans    &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans                  &trans  &trans    &trans    &trans    &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans                  &trans  &trans    &trans    &trans    &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &mkp MB1  &mkp MB3  &mkp MB2  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &mkp MB4  &trans    &mkp MB5  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans    &trans    &trans    &trans  &trans
             >;
         };
 
