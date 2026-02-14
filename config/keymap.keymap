@@ -20,7 +20,7 @@
         layer_0 {
             bindings = <
 &trans  &trans     &trans    &trans    &trans      &trans                                      &trans     &trans  &trans     &trans   &trans             &trans
-&trans  &kp Q      &kp W     &lt 5 E   &kp R       &kp T                                       &kp Y      &kp U   &lt 5 I    &kp O    &kp P              &trans
+&trans  &kp Q      &kp W     &kp E     &kp R       &kp T                                       &kp Y      &kp U   &lt 5 I    &kp O    &kp P              &trans
 &trans  &kp A      &kp S     &kp D     &kp F       &kp G      &trans            &trans         &kp H      &kp J   &kp K      &kp L    &kp MINUS          &trans
 &trans  &kp Z      &kp X     &kp C     &kp V       &kp B      &kp TAB           &kp BACKSPACE  &kp N      &kp M   &kp COMMA  &kp DOT  &kp SLASH          &trans
 &trans  &kp LCTRL  &kp LGUI  &kp LALT  &kp LSHIFT  &kp SPACE  &lt 2 LANGUAGE_2  &lt 1 LANG4    &kp ENTER  &trans  &trans     &to 3    &lt 6 PRINTSCREEN  &trans
@@ -62,7 +62,7 @@
 &trans  &trans  &trans  &trans  &trans  &trans                  &trans  &trans    &trans    &trans    &trans  &trans
 &trans  &trans  &trans  &trans  &trans  &trans                  &trans  &trans    &trans    &trans    &trans  &trans
 &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &mkp MB1  &mkp MB3  &mkp MB2  &trans  &trans
-&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans    &trans    &trans    &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &mkp MB4  &trans    &mkp MB5  &trans  &trans
 &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans    &trans    &trans    &trans  &trans
             >;
         };
