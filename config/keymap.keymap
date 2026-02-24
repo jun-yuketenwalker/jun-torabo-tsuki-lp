@@ -14,26 +14,24 @@
         };
     };
 
-    macros {
-        parenthesis: new_macro {
+macros {
+        parenthesis: parenthesis {
             compatible = "zmk,behavior-macro";
             #binding-cells = <0>;
             bindings = <&kp LEFT_PARENTHESIS &kp RIGHT_PARENTHESIS &kp LEFT_ARROW>;
-            label = "NEW_MACRO";
+            label = "PARENTHESIS";
         };
-
-        blacket: new_macro {
+        blacket: blacket {
             compatible = "zmk,behavior-macro";
             #binding-cells = <0>;
             bindings = <&kp LEFT_BRACKET &kp RIGHT_BRACKET &kp LEFT_ARROW>;
-            label = "NEW_MACRO";
+            label = "BLACKET";
         };
-
-        brace: new_macro {
+        brace: brace {
             compatible = "zmk,behavior-macro";
             #binding-cells = <0>;
             bindings = <&kp LEFT_BRACE &kp RIGHT_BRACE &kp LEFT>;
-            label = "NEW_MACRO";
+            label = "BRACE";
         };
     };
 
