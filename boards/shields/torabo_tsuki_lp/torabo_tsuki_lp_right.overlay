@@ -2,29 +2,10 @@
 #include <input/processors.dtsi>
 #include <dt-bindings/zmk/input_transform.h>
 
-/ {
-    zip_scroll_scaler: zip_scroll_scaler {
-        compatible = "zmk,input-processor-scaler";
-        #input-processor-cells = <2>;
-        type = <INPUT_EV_REL>;
-        codes = <INPUT_REL_Y>;
-        track-remainders;
-    };
-};
-
 &pointing_listener {
     input-processors = <&zip_xy_transform (INPUT_TRANSFORM_X_INVERT | INPUT_TRANSFORM_Y_INVERT)>;
     automouse-layer = <5>;
     automouse-idle-ms = <10000>;
-
-    scroll-layers = <6>;
-    scroll {
-        input-processors = 
-            &zip_x_nullifier
-            &zip_scroll_scaler INPUT_REL_Y 2
-            &zip_y_to_scroll_mapper
-        >;
-    };
 };
 
 &size_s_transform {
