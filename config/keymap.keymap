@@ -14,19 +14,21 @@
         };
     };
 
-macros {
+    macros {
         parenthesis: parenthesis {
             compatible = "zmk,behavior-macro";
             #binding-cells = <0>;
             bindings = <&kp LEFT_PARENTHESIS &kp RIGHT_PARENTHESIS &kp LEFT_ARROW>;
             label = "PARENTHESIS";
         };
+
         blacket: blacket {
             compatible = "zmk,behavior-macro";
             #binding-cells = <0>;
             bindings = <&kp LEFT_BRACKET &kp RIGHT_BRACKET &kp LEFT_ARROW>;
             label = "BLACKET";
         };
+
         brace: brace {
             compatible = "zmk,behavior-macro";
             #binding-cells = <0>;
@@ -44,7 +46,7 @@ macros {
 &trans  &kp Q      &kp W     &kp E     &kp R       &kp T                                       &kp Y      &kp U   &lt 6 I    &kp O    &kp P              &trans
 &trans  &kp A      &kp S     &kp D     &kp F       &kp G      &trans            &trans         &kp H      &kp J   &kp K      &kp L    &kp MINUS          &trans
 &trans  &kp Z      &kp X     &kp C     &kp V       &kp B      &kp TAB           &kp BACKSPACE  &kp N      &kp M   &kp COMMA  &kp DOT  &kp SLASH          &trans
-&trans  &kp LCTRL  &kp LGUI  &kp LALT  &kp LSHIFT  &kp SPACE  &lt 2 LANGUAGE_2  &lt 1 LANG4    &kp ENTER  &trans  &trans     &to 4    &lt 8 PRINTSCREEN  &trans
+&trans  &kp LCTRL  &kp LGUI  &kp LALT  &kp LSHIFT  &kp SPACE  &lt 2 LANGUAGE_2  &lt 1 LANG4    &kp ENTER  &trans  &trans     &to 4    &lt 7 PRINTSCREEN  &trans
             >;
         };
 
@@ -115,16 +117,6 @@ macros {
 &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans        &trans          &trans        &trans        &trans        &trans
 &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &bt BT_CLR    &bt BT_CLR_ALL  &trans        &trans        &trans        &trans
 &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans        &trans          &trans        &trans        &trans        &trans
-            >;
-        };
-
-        layer_8 {
-            bindings = <
-&trans  &trans  &trans  &trans  &trans  &trans                  &trans  &trans  &trans  &trans  &trans  &trans
-&trans  &trans  &trans  &trans  &trans  &trans                  &trans  &trans  &trans  &trans  &trans  &trans
-&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
-&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
-&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
             >;
         };
     };
