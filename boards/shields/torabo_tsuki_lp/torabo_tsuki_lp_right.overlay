@@ -19,7 +19,9 @@
 
     scroll_layer {
         layers = <6>;
-        input-processors = <&vertical_scroll_mapper>;
+        input-processors = 
+            <&vertical_scroll_mapper>,
+            <&zip_scroll_scaler 2 3>;   // ← これだけ追加
     };
 };
 
