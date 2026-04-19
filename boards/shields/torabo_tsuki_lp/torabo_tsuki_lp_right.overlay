@@ -24,7 +24,7 @@
 };
 
 &zip_temp_layer {
-    excluded-positions = <21 22 34 36 48>;
+    excluded-positions = <33 34 35 47 49>;
 };
 
 &size_s_transform {
