@@ -7,10 +7,19 @@
     combos {
         compatible = "zmk,combos";
 
-        bt_clear {
-            bindings = <&bt BT_CLR>;
-            key-positions = <28 29>;
-            layers = <2>;
+        left_click {
+            bindings = <&mkp MB1>;
+            key-positions = <21 34>;
+        };
+
+        right_click {
+            bindings = <&mkp MB2>;
+            key-positions = <22 21>;
+        };
+
+        middle_click {
+            bindings = <&mkp MB3>;
+            key-positions = <22 21 34>;
         };
     };
 
