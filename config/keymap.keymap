@@ -21,6 +21,21 @@
             bindings = <&mkp MB3>;
             key-positions = <22 21 34>;
         };
+
+        left_click2 {
+            bindings = <&mkp MB1>;
+            key-positions = <14 27>;
+        };
+
+        right_click {
+            bindings = <&mkp MB2>;
+            key-positions = <13 14>;
+        };
+
+        middle_click2 {
+            bindings = <&mkp MB3>;
+            key-positions = <13 14 27>;
+        };
     };
 
     macros {
