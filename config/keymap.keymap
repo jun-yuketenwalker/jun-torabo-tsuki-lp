@@ -36,6 +36,16 @@
             bindings = <&mkp MB3>;
             key-positions = <13 14 27>;
         };
+
+        MB4 {
+            bindings = <&mkp MB4>;
+            key-positions = <47 48>;
+        };
+
+        MB5 {
+            bindings = <&mkp MB5>;
+            key-positions = <49 48>;
+        };
     };
 
     macros {
@@ -119,7 +129,7 @@
 &trans  &trans  &trans  &trans  &trans  &trans                  &trans  &trans    &trans    &trans    &trans  &trans
 &trans  &trans  &trans  &trans  &trans  &trans                  &trans  &trans    &trans    &trans    &trans  &trans
 &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &mkp MB1  &mkp MB3  &mkp MB2  &trans  &trans
-&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &mkp MB4  &trans    &mkp MB5  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans    &trans    &trans    &trans  &trans
 &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans    &trans    &trans    &trans  &trans
             >;
         };
