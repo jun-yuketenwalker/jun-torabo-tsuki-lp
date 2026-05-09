@@ -18,6 +18,5 @@
             <&zip_xy_scaler 4 5>,
             <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>,
             <&zip_scroll_scaler 2 10>;
-            <&zip_temp_layer 5 10000>;
     };
 };
