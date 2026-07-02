@@ -9,12 +9,22 @@
 
         mouse_btn4 {
             bindings = <&mkp MB4>;
-            key-positions = <47 34>;
+            key-positions = <34 33>;
         };
 
         mouse_btn5 {
             bindings = <&mkp MB5>;
             key-positions = <35 34>;
+        };
+
+        mouse_btn4_low {
+            bindings = <&mkp MB4>;
+            key-positions = <47 48>;
+        };
+
+        mouse_btn5_low {
+            bindings = <&mkp MB5>;
+            key-positions = <48 49>;
         };
     };
 
@@ -46,11 +56,11 @@
 
         layer_0 {
             bindings = <
-&trans  &trans     &trans    &trans    &trans      &trans                                      &trans     &trans  &trans       &trans   &trans             &trans
-&trans  &kp Q      &kp W     &kp E     &kp R       &kp T                                       &kp Y      &kp U   &kp I        &kp O    &kp P              &trans
-&trans  &kp A      &kp S     &kp D     &kp F       &kp G      &trans            &trans         &kp H      &kp J   &kp K        &kp L    &kp MINUS          &trans
-&trans  &kp Z      &kp X     &kp C     &kp V       &kp B      &kp TAB           &kp BACKSPACE  &kp N      &kp M   &lt 6 COMMA  &kp DOT  &kp SLASH          &trans
-&trans  &kp LCTRL  &kp LGUI  &kp LALT  &kp LSHIFT  &kp SPACE  &lt 2 LANGUAGE_2  &lt 1 LANG4    &kp ENTER  &trans  &trans       &to 4    &lt 7 PRINTSCREEN  &trans
+&trans  &trans     &trans    &trans    &trans      &trans                                      &trans     &trans  &trans     &trans   &trans             &trans
+&trans  &kp Q      &kp W     &kp E     &kp R       &kp T                                       &kp Y      &kp U   &kp I      &kp O    &kp P              &trans
+&trans  &kp A      &kp S     &kp D     &kp F       &kp G      &trans            &trans         &kp H      &kp J   &kp K      &kp L    &lt 6 MINUS        &trans
+&trans  &kp Z      &kp X     &kp C     &kp V       &kp B      &kp TAB           &kp BACKSPACE  &kp N      &kp M   &kp COMMA  &kp DOT  &lt 6 SLASH        &trans
+&trans  &kp LCTRL  &kp LGUI  &kp LALT  &kp LSHIFT  &kp SPACE  &lt 2 LANGUAGE_2  &lt 1 LANG4    &kp ENTER  &trans  &trans     &to 4    &lt 7 PRINTSCREEN  &trans
             >;
         };
 
@@ -66,11 +76,11 @@
 
         Kigou {
             bindings = <
-&trans  &trans  &trans  &trans  &trans  &trans                    &trans          &trans        &trans     &trans      &trans       &trans
-&trans  &trans  &kp F7  &kp F8  &kp F9  &kp F10                   &kp EXCL        &kp AT        &kp HASH   &kp DOLLAR  &kp PERCENT  &trans
-&trans  &trans  &kp F4  &kp F5  &kp F6  &kp F11  &trans   &trans  &kp CARET       &kp AMPS      &kp ASTRK  &kp COLON   &kp SEMI     &trans
-&trans  &trans  &kp F1  &kp F2  &kp F3  &kp F12  &kp ESC  &trans  &kp UNDERSCORE  &parenthesis  &blacket   &brace      &trans       &trans
-&trans  &trans  &trans  &trans  &trans  &trans   &trans   &trans  &trans          &trans        &trans     &trans      &trans       &trans
+&trans  &trans  &trans   &trans   &trans   &trans                                 &trans                 &trans           &trans     &trans     &trans      &trans
+&trans  &kp F9  &kp F10  &kp F11  &kp F12  &kp LEFT_BRACE                         &kp RIGHT_BRACE        &kp EXCLAMATION  &kp AT     &kp HASH   &kp DOLLAR  &trans
+&trans  &kp F5  &kp F6   &kp F7   &kp F8   &kp LEFT_BRACKET      &trans   &trans  &kp RIGHT_BRACKET      &kp PERCENT      &kp AMPS   &kp COLON  &kp SEMI    &trans
+&trans  &kp F1  &kp F2   &kp F3   &kp F4   &kp LEFT_PARENTHESIS  &kp ESC  &trans  &kp RIGHT_PARENTHESIS  &kp UNDERSCORE   &kp ASTRK  &brace     &trans      &trans
+&trans  &trans  &trans   &trans   &trans   &trans                &trans   &trans  &trans                 &trans           &trans     &trans     &trans      &trans
             >;
         };
 
@@ -98,8 +108,8 @@
             bindings = <
 &trans  &trans  &trans  &trans  &trans  &trans                  &trans  &trans    &trans    &trans    &trans  &trans
 &trans  &trans  &trans  &trans  &trans  &trans                  &trans  &trans    &trans    &trans    &trans  &trans
-&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans    &mkp MB3  &mkp MB2  &trans  &trans
-&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &mkp MB1  &trans    &trans    &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &mkp MB1  &mkp MB3  &mkp MB2  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &mkp MB1  &mkp MB3  &mkp MB2  &trans  &trans
 &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans    &trans    &trans    &trans  &trans
             >;
         };
