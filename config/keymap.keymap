@@ -9,12 +9,12 @@
 
         mouse_btn4 {
             bindings = <&mkp MB4>;
-            key-positions = <48 35>;
+            key-positions = <47 34>;
         };
 
         mouse_btn5 {
             bindings = <&mkp MB5>;
-            key-positions = <35 36>;
+            key-positions = <35 34>;
         };
     };
 
@@ -46,11 +46,11 @@
 
         layer_0 {
             bindings = <
-&trans  &trans     &trans    &trans    &trans      &trans                                      &trans     &trans  &trans     &trans     &trans             &trans
-&trans  &kp Q      &kp W     &kp E     &kp R       &kp T                                       &kp Y      &kp U   &kp I      &kp O      &kp P              &trans
-&trans  &kp A      &kp S     &kp D     &kp F       &kp G      &trans            &trans         &kp H      &kp J   &kp K      &kp L      &kp MINUS          &trans
-&trans  &kp Z      &kp X     &kp C     &kp V       &kp B      &kp TAB           &kp BACKSPACE  &kp N      &kp M   &kp COMMA  &lt 6 DOT  &kp SLASH          &trans
-&trans  &kp LCTRL  &kp LGUI  &kp LALT  &kp LSHIFT  &kp SPACE  &lt 2 LANGUAGE_2  &lt 1 LANG4    &kp ENTER  &trans  &trans     &to 4      &lt 7 PRINTSCREEN  &trans
+&trans  &trans     &trans    &trans    &trans      &trans                                      &trans     &trans  &trans       &trans   &trans             &trans
+&trans  &kp Q      &kp W     &kp E     &kp R       &kp T                                       &kp Y      &kp U   &kp I        &kp O    &kp P              &trans
+&trans  &kp A      &kp S     &kp D     &kp F       &kp G      &trans            &trans         &kp H      &kp J   &kp K        &kp L    &kp MINUS          &trans
+&trans  &kp Z      &kp X     &kp C     &kp V       &kp B      &kp TAB           &kp BACKSPACE  &kp N      &kp M   &lt 6 COMMA  &kp DOT  &kp SLASH          &trans
+&trans  &kp LCTRL  &kp LGUI  &kp LALT  &kp LSHIFT  &kp SPACE  &lt 2 LANGUAGE_2  &lt 1 LANG4    &kp ENTER  &trans  &trans       &to 4    &lt 7 PRINTSCREEN  &trans
             >;
         };
 
@@ -96,11 +96,11 @@
 
         Auto_Mouse {
             bindings = <
-&trans  &trans  &trans  &trans  &trans  &trans                  &trans  &trans  &trans    &trans    &trans    &trans
-&trans  &trans  &trans  &trans  &trans  &trans                  &trans  &trans  &trans    &trans    &trans    &trans
-&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans    &mkp MB3  &mkp MB2  &trans
-&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &mkp MB1  &trans    &trans    &trans
-&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans    &trans    &trans    &trans
+&trans  &trans  &trans  &trans  &trans  &trans                  &trans  &trans    &trans    &trans    &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans                  &trans  &trans    &trans    &trans    &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans    &mkp MB3  &mkp MB2  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &mkp MB1  &trans    &trans    &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans    &trans    &trans    &trans  &trans
             >;
         };
 
