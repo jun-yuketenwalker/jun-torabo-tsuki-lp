@@ -1,0 +1,1689 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>torabo-tsuki XS キーマップ / トラックボール設定エディタ</title>
+<script type="importmap">
+{
+  "imports": {
+    "protobufjs/minimal": "./vendor/protobufjs/minimal.esm.js",
+    "async-mutex": "./vendor/async-mutex/index.mjs"
+  }
+}
+</script>
+<!-- Classic (non-module) script so it runs before the deferred module code below
+     and attaches the UMD build to globalThis.protobuf, which minimal.esm.js wraps. -->
+<script src="./vendor/protobufjs/protobuf.min.js"></script>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f4f5f7;
+    --panel: #ffffff;
+    --text: #1a1a1a;
+    --muted: #666;
+    --border: #d7d9dd;
+    --accent: #3a6df0;
+    --key-bg: #eef0f4;
+    --key-border: #b9bec8;
+    --key-active-bg: #dbe6ff;
+    --danger: #c0392b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16181c;
+      --panel: #1f2227;
+      --text: #e7e9ec;
+      --muted: #9aa0a8;
+      --border: #33373d;
+      --accent: #6f96ff;
+      --key-bg: #2a2e35;
+      --key-border: #43484f;
+      --key-active-bg: #33406a;
+      --danger: #ff6b5e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", "Hiragino Sans", "Yu Gothic UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  header h1 { font-size: 15px; margin: 0; margin-right: auto; }
+  button {
+    font: inherit;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--key-bg);
+    color: var(--text);
+    cursor: pointer;
+  }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  #status { font-size: 12px; color: var(--muted); }
+  #dirty-badge { font-size: 12px; color: var(--danger); display: none; }
+  nav.tabs { display: flex; gap: 6px; padding: 10px 16px 0; }
+  nav.tabs button.tab { border-bottom: 3px solid transparent; border-radius: 6px 6px 0 0; }
+  nav.tabs button.tab.active { border-bottom-color: var(--accent); background: var(--panel); font-weight: 600; }
+  main { padding: 16px; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .notice {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 14px;
+    line-height: 1.6;
+  }
+  .layer-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .layer-tabs button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  #board, .board {
+    position: relative;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: auto;
+    padding: 24px;
+  }
+  .mini-board { margin: 10px 0; }
+  .mini-board .key { font-size: 8px; }
+  .mini-board .key.selected { background: var(--key-active-bg); border-color: var(--accent); }
+  .key {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    background: var(--key-bg);
+    border: 1px solid var(--key-border);
+    border-radius: 8px;
+    font-size: 11px;
+    line-height: 1.25;
+    padding: 2px;
+    cursor: pointer;
+    word-break: break-word;
+    user-select: none;
+  }
+  .key:hover { border-color: var(--accent); }
+  .key.selected { background: var(--key-active-bg); border-color: var(--accent); }
+  .key .pos { position: absolute; top: 2px; left: 4px; font-size: 8px; color: var(--muted); }
+  .trackball {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle at 32% 28%, #f2f4f8 0%, #b7bdc9 35%, #7d838f 70%, #565b64 100%);
+    box-shadow: inset -6px -8px 14px rgba(0,0,0,0.35), inset 4px 6px 10px rgba(255,255,255,0.35), 0 1px 3px rgba(0,0,0,0.4);
+    pointer-events: none;
+  }
+  @media (prefers-color-scheme: dark) {
+    .trackball {
+      background: radial-gradient(circle at 32% 28%, #6b7280 0%, #454b54 35%, #2b2f36 70%, #16181c 100%);
+    }
+  }
+  section.ref { margin-top: 18px; }
+  section.ref h2 { font-size: 13px; margin: 0 0 6px; }
+  section.ref .box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: var(--muted);
+    white-space: pre-wrap;
+  }
+
+  /* picker */
+  #picker-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.35);
+    display: none; align-items: center; justify-content: center; z-index: 50;
+  }
+  #picker-backdrop.open { display: flex; }
+  #picker {
+    width: min(720px, 92vw);
+    max-height: 82vh;
+    overflow: auto;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  #picker h3 { margin: 0 0 10px; font-size: 14px; }
+  #picker .cat { margin-bottom: 12px; }
+  #picker .cat h4 { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 6px; }
+  #picker .grid { display: flex; flex-wrap: wrap; gap: 6px; }
+  #picker .grid button { font-size: 12px; padding: 4px 10px; }
+  #picker .row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  #picker input[type=text], #picker input[type=number] {
+    font: inherit; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text); width: 80px;
+  }
+  #picker input[type=text].wide { width: 220px; }
+  #picker .close-row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+
+  /* trackball tab */
+  .tb-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 18px; margin-bottom: 14px;
+  }
+  .tb-card h3 { margin: 0 0 4px; font-size: 14px; }
+  .tb-card .path { font-size: 11px; color: var(--muted); margin-bottom: 10px; font-family: monospace; }
+  .tb-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .tb-row label { width: 210px; font-size: 13px; }
+  .tb-row input[type=range] { flex: 1; }
+  .tb-row .val { width: 60px; text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; }
+  .tb-row.checkbox label { width: auto; }
+
+  /* combo / macro cards */
+  .item-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 16px; margin-bottom: 12px;
+  }
+  .item-card .row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  .item-card input[type=text] {
+    font: inherit; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text);
+  }
+  .item-card .name-input { width: 160px; font-weight: 600; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 4px; font-size: 12px;
+    background: var(--key-bg); border: 1px solid var(--key-border); border-radius: 12px;
+    padding: 2px 10px;
+  }
+  .macro-steps { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; }
+  .macro-step { display: flex; align-items: center; gap: 2px; }
+  .macro-step button.step-token { font-size: 12px; padding: 4px 8px; }
+  .macro-step button.step-remove { padding: 2px 6px; font-size: 11px; color: var(--danger); }
+  .btn-danger { color: var(--danger); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>torabo-tsuki XS キーマップ / トラックボール設定エディタ</h1>
+  <span id="dirty-badge">未保存の変更があります</span>
+  <span id="status">フォルダが未選択です</span>
+  <button id="btn-open">リポジトリのフォルダを開く</button>
+  <button id="btn-save" class="primary" disabled>保存</button>
+</header>
+
+<nav class="tabs">
+  <button class="tab active" data-panel="panel-keymap">キーマップ</button>
+  <button class="tab" data-panel="panel-combo">コンボ</button>
+  <button class="tab" data-panel="panel-macro">マクロ</button>
+  <button class="tab" data-panel="panel-trackball">トラックボール / スクロール速度</button>
+  <button class="tab" data-panel="panel-live">ライブ接続(実験的)</button>
+</nav>
+
+<main>
+  <div class="notice" style="border-left-color: var(--danger);">
+    <strong>起動方法の注意:</strong> このファイルを直接ダブルクリックして開く(<code>file://</code>)と、
+    ブラウザのセキュリティ制限でボタンが一切反応しません。必ず同じフォルダにある
+    <code>start-keymap-editor.bat</code> をダブルクリックして起動してください
+    (ローカルサーバーが立ち上がり、自動的にブラウザで <code>http://localhost:8743/</code> が開きます)。
+  </div>
+  <div class="notice">
+    このツールはファイル(<code>config/keymap.keymap</code> と関連する overlay ファイル)を書き換えるだけです。
+    実機に反映するには、保存後にこのフォルダの変更をコミット/プッシュ(または <code>west build</code>)して
+    GitHub Actions のビルドを待ち、生成された <code>.uf2</code> を書き込んでください。<br>
+    表示しているキー配置は、ファームウェア上の物理レイアウト「S(44キー)」を実機のXSとして扱ったものです
+    (一番上の行、上下左右の一番外側の列、ホームロー中央2キーが実在しないため非表示にしています)。
+  </div>
+
+  <section id="panel-keymap" class="panel active">
+    <div id="layer-tabs" class="layer-tabs"></div>
+    <div id="board"></div>
+  </section>
+
+  <div id="panel-combo" class="panel"></div>
+  <div id="panel-macro" class="panel"></div>
+  <div id="panel-trackball" class="panel"></div>
+  <div id="panel-live" class="panel"></div>
+</main>
+
+<div id="picker-backdrop">
+  <div id="picker"></div>
+</div>
+
+<script type="module">
+'use strict';
+
+import { create_rpc_connection, call_rpc, NoResponseError, MetaError } from './vendor/zmk-studio-ts-client/index.js';
+import { connect as connectSerial } from './vendor/zmk-studio-ts-client/transport/serial.js';
+import { connect as connectGatt } from './vendor/zmk-studio-ts-client/transport/gatt.js';
+
+/* ============================================================
+ * 1. Physical layout data for the real 44-key "XS" (= firmware's
+ *    S physical layout). Extracted from
+ *    boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_layouts.dtsi
+ *    (physical_layout_s + position_map_s_1), units are the raw
+ *    devicetree key_physical_attrs numbers (100 = 1 key unit,
+ *    rot/rx/ry in the same convention as the source).
+ * ========================================================== */
+const LAYOUT_XS = [
+  {"pos":13,"x":0,"y":60,"rot":0,"rx":0,"ry":0},
+  {"pos":14,"x":100,"y":25,"rot":0,"rx":0,"ry":0},
+  {"pos":15,"x":200,"y":0,"rot":0,"rx":0,"ry":0},
+  {"pos":16,"x":300,"y":13,"rot":0,"rx":0,"ry":0},
+  {"pos":17,"x":400,"y":25,"rot":0,"rx":0,"ry":0},
+  {"pos":18,"x":950,"y":25,"rot":0,"rx":0,"ry":0},
+  {"pos":19,"x":1050,"y":13,"rot":0,"rx":0,"ry":0},
+  {"pos":20,"x":1150,"y":0,"rot":0,"rx":0,"ry":0},
+  {"pos":21,"x":1250,"y":25,"rot":0,"rx":0,"ry":0},
+  {"pos":22,"x":1350,"y":60,"rot":0,"rx":0,"ry":0},
+  {"pos":25,"x":0,"y":160,"rot":0,"rx":0,"ry":0},
+  {"pos":26,"x":100,"y":125,"rot":0,"rx":0,"ry":0},
+  {"pos":27,"x":200,"y":100,"rot":0,"rx":0,"ry":0},
+  {"pos":28,"x":300,"y":113,"rot":0,"rx":0,"ry":0},
+  {"pos":29,"x":400,"y":125,"rot":0,"rx":0,"ry":0},
+  {"pos":32,"x":950,"y":125,"rot":0,"rx":0,"ry":0},
+  {"pos":33,"x":1050,"y":113,"rot":0,"rx":0,"ry":0},
+  {"pos":34,"x":1150,"y":100,"rot":0,"rx":0,"ry":0},
+  {"pos":35,"x":1250,"y":125,"rot":0,"rx":0,"ry":0},
+  {"pos":36,"x":1350,"y":160,"rot":0,"rx":0,"ry":0},
+  {"pos":39,"x":0,"y":260,"rot":0,"rx":0,"ry":0},
+  {"pos":40,"x":100,"y":225,"rot":0,"rx":0,"ry":0},
+  {"pos":41,"x":200,"y":200,"rot":0,"rx":0,"ry":0},
+  {"pos":42,"x":300,"y":213,"rot":0,"rx":0,"ry":0},
+  {"pos":43,"x":400,"y":225,"rot":0,"rx":0,"ry":0},
+  {"pos":44,"x":500,"y":240,"rot":0,"rx":0,"ry":0},
+  {"pos":45,"x":850,"y":240,"rot":0,"rx":0,"ry":0},
+  {"pos":46,"x":950,"y":225,"rot":0,"rx":0,"ry":0},
+  {"pos":47,"x":1050,"y":213,"rot":0,"rx":0,"ry":0},
+  {"pos":48,"x":1150,"y":200,"rot":0,"rx":0,"ry":0},
+  {"pos":49,"x":1250,"y":225,"rot":0,"rx":0,"ry":0},
+  {"pos":50,"x":1350,"y":260,"rot":0,"rx":0,"ry":0},
+  {"pos":53,"x":0,"y":360,"rot":0,"rx":0,"ry":0},
+  {"pos":54,"x":100,"y":325,"rot":0,"rx":0,"ry":0},
+  {"pos":55,"x":200,"y":300,"rot":0,"rx":0,"ry":0},
+  {"pos":56,"x":315,"y":350,"rot":0,"rx":0,"ry":0},
+  {"pos":57,"x":420,"y":350,"rot":1000,"rx":420,"ry":450},
+  {"pos":58,"x":522,"y":371,"rot":2000,"rx":525,"ry":470},
+  {"pos":59,"x":828,"y":371,"rot":-2000,"rx":925,"ry":470},
+  {"pos":60,"x":930,"y":350,"rot":-1000,"rx":1030,"ry":450},
+  {"pos":61,"x":1035,"y":350,"rot":0,"rx":0,"ry":0,"trackball":true},
+  {"pos":62,"x":1150,"y":300,"rot":0,"rx":0,"ry":0,"trackball":true},
+  {"pos":63,"x":1250,"y":325,"rot":0,"rx":0,"ry":0},
+  {"pos":64,"x":1350,"y":360,"rot":0,"rx":0,"ry":0}
+];
+const KEY_W = 100, KEY_H = 100; // all keys are 1u on this board
+// positions 61/62 have no physical key on the real board — the trackball module
+// sits there instead. Rendered as a ball spanning both cells' footprint.
+const TRACKBALL_VISUAL = (() => {
+  const cells = LAYOUT_XS.filter(k => k.trackball);
+  const minX = Math.min(...cells.map(k => k.x));
+  const maxX = Math.max(...cells.map(k => k.x + KEY_W));
+  const minY = Math.min(...cells.map(k => k.y));
+  const maxY = Math.max(...cells.map(k => k.y + KEY_H));
+  const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+  const r = Math.max(maxX - minX, maxY - minY) / 2 + 20;
+  return { cx, cy, r };
+})();
+
+/* ============================================================
+ * 2. Devicetree text manipulation (ported from core-logic.js,
+ *    unit-tested against the real repo files under Node before
+ *    being embedded here verbatim).
+ * ========================================================== */
+const ROW_SIZES = [12, 12, 14, 14, 14];
+
+function tokenizeBindings(bindingsText) {
+  const words = bindingsText.split(/\s+/).filter(Boolean);
+  const tokens = [];
+  for (const w of words) {
+    if (w.startsWith('&')) {
+      tokens.push([w]);
+    } else {
+      if (tokens.length === 0) throw new Error('binding token found before any behavior: ' + w);
+      tokens[tokens.length - 1].push(w);
+    }
+  }
+  return tokens.map(t => t.join(' '));
+}
+
+function findLayerBlocks(keymapText) {
+  const keymapNodeStart = keymapText.indexOf('keymap {');
+  if (keymapNodeStart === -1) throw new Error('keymap { ... } node not found');
+  const layerRe = /(\w+)\s*\{\s*bindings\s*=\s*<([\s\S]*?)>;\s*\};/g;
+  const layers = [];
+  let m;
+  layerRe.lastIndex = keymapNodeStart;
+  while ((m = layerRe.exec(keymapText))) {
+    const [full, name, bindingsBody] = m;
+    const bodyStart = m.index + full.indexOf(bindingsBody);
+    layers.push({
+      name,
+      tokens: tokenizeBindings(bindingsBody),
+      nameStart: m.index,
+      nameEnd: m.index + name.length,
+      bindingsBodyStart: bodyStart,
+      bindingsBodyEnd: bodyStart + bindingsBody.length,
+    });
+  }
+  if (layers.length === 0) throw new Error('no layers found inside keymap node');
+  return layers;
+}
+
+function parseKeymap(keymapText) {
+  const layers = findLayerBlocks(keymapText);
+  return layers.map(({ name, tokens, bindingsBodyStart, bindingsBodyEnd }) => {
+    if (tokens.length !== 66) throw new Error(`layer ${name} has ${tokens.length} tokens, expected 66`);
+    return { name, tokens, bindingsBodyStart, bindingsBodyEnd };
+  });
+}
+
+function formatBindingsBody(tokens) {
+  let idx = 0;
+  const lines = [];
+  for (const rowSize of ROW_SIZES) {
+    lines.push(tokens.slice(idx, idx + rowSize).join('  '));
+    idx += rowSize;
+  }
+  return '\n' + lines.join('\n') + '\n        ';
+}
+
+function serializeKeymap(originalKeymapText, editedLayersByName) {
+  const layers = findLayerBlocks(originalKeymapText);
+  let text = originalKeymapText;
+  for (let i = layers.length - 1; i >= 0; i--) {
+    const layer = layers[i];
+    const edited = editedLayersByName.get(layer.name);
+    if (!edited) continue;
+    if (edited.length !== 66) throw new Error(`edited layer ${layer.name} must have 66 tokens`);
+    const newBody = formatBindingsBody(edited);
+    text = text.slice(0, layer.bindingsBodyStart) + newBody + text.slice(layer.bindingsBodyEnd);
+  }
+  return text;
+}
+
+function findKeymapNodeEnd(keymapText) {
+  const idx = keymapText.indexOf('keymap {');
+  if (idx === -1) throw new Error('keymap { ... } node not found');
+  const braceIdx = keymapText.indexOf('{', idx);
+  let depth = 0;
+  for (let i = braceIdx; i < keymapText.length; i++) {
+    if (keymapText[i] === '{') depth++;
+    else if (keymapText[i] === '}') { depth--; if (depth === 0) return i; }
+  }
+  throw new Error('keymap node has unbalanced braces');
+}
+
+// layersState: [{ originalName, name, tokens }]. Entries with an `originalName`
+// are matched back to their existing devicetree node (renamed/rebound in place,
+// preserving position + all surrounding text). Entries without `originalName`
+// are brand new layers, appended just before the keymap node's closing brace.
+function serializeKeymapFull(originalKeymapText, layersState) {
+  const originalLayers = findLayerBlocks(originalKeymapText);
+  const byOriginalName = new Map();
+  layersState.forEach(l => { if (l.originalName) byOriginalName.set(l.originalName, l); });
+
+  let text = originalKeymapText;
+  for (let i = originalLayers.length - 1; i >= 0; i--) {
+    const orig = originalLayers[i];
+    const edited = byOriginalName.get(orig.name);
+    if (!edited) continue;
+    if (edited.tokens.length !== 66) throw new Error(`layer ${orig.name} must have 66 tokens`);
+    const newBody = formatBindingsBody(edited.tokens);
+    if (edited.name !== orig.name) {
+      text = text.slice(0, orig.nameStart) + edited.name + text.slice(orig.nameEnd, orig.bindingsBodyStart) + newBody + text.slice(orig.bindingsBodyEnd);
+    } else {
+      text = text.slice(0, orig.bindingsBodyStart) + newBody + text.slice(orig.bindingsBodyEnd);
+    }
+  }
+
+  const newLayers = layersState.filter(l => !l.originalName);
+  if (newLayers.length > 0) {
+    const insertPos = findKeymapNodeEnd(text);
+    const blocks = newLayers.map(l => {
+      if (l.tokens.length !== 66) throw new Error(`new layer ${l.name} must have 66 tokens`);
+      return `        ${l.name} {\n            bindings = <${formatBindingsBody(l.tokens)}>;\n        };\n`;
+    }).join('\n');
+    text = text.slice(0, insertPos) + blocks + text.slice(insertPos);
+  }
+  return text;
+}
+
+function parseCombos(keymapText) {
+  const block = extractBlock(keymapText, 'combos {');
+  if (!block) return { combos: [], blockRange: null };
+  const body = keymapText.slice(block.braceStart + 1, block.braceEnd);
+  const comboRe = /(\w+)\s*\{([\s\S]*?)\}\s*;/g;
+  const combos = [];
+  let m;
+  while ((m = comboRe.exec(body))) {
+    const [, name, inner] = m;
+    const bindingsM = inner.match(/bindings\s*=\s*<([\s\S]*?)>;/);
+    const posM = inner.match(/key-positions\s*=\s*<([\s\S]*?)>;/);
+    const timeoutM = inner.match(/timeout-ms\s*=\s*<([\s\S]*?)>;/);
+    combos.push({
+      name,
+      binding: bindingsM ? tokenizeBindings(bindingsM[1])[0] : '&trans',
+      keyPositions: posM ? posM[1].trim().split(/\s+/).map(Number) : [],
+      timeoutMs: timeoutM ? Number(timeoutM[1].trim()) : null,
+    });
+  }
+  return { combos, blockRange: block };
+}
+
+function serializeCombos(originalKeymapText, blockRange, combos) {
+  const body = combos.map(c => {
+    const lines = [
+      `        ${c.name} {`,
+      `            bindings = <${c.binding}>;`,
+      `            key-positions = <${c.keyPositions.join(' ')}>;`,
+    ];
+    if (c.timeoutMs != null) lines.push(`            timeout-ms = <${c.timeoutMs}>;`);
+    lines.push('        };');
+    return lines.join('\n');
+  }).join('\n\n');
+  const newBody = `\n        compatible = "zmk,combos";\n\n${body}\n    `;
+  return originalKeymapText.slice(0, blockRange.braceStart + 1) + newBody + originalKeymapText.slice(blockRange.braceEnd);
+}
+
+function parseMacros(keymapText) {
+  const block = extractBlock(keymapText, 'macros {');
+  if (!block) return { macros: [], blockRange: null };
+  const body = keymapText.slice(block.braceStart + 1, block.braceEnd);
+  const macroRe = /(\w+):\s*\1\s*\{([\s\S]*?)\}\s*;/g;
+  const macros = [];
+  let m;
+  while ((m = macroRe.exec(body))) {
+    const [, id, inner] = m;
+    const bindingsM = inner.match(/bindings\s*=\s*<([\s\S]*?)>;/);
+    const labelM = inner.match(/label\s*=\s*"([^"]*)"/);
+    macros.push({
+      id,
+      label: labelM ? labelM[1] : id.toUpperCase(),
+      tokens: bindingsM ? tokenizeBindings(bindingsM[1]) : [],
+    });
+  }
+  return { macros, blockRange: block };
+}
+
+function serializeMacros(originalKeymapText, blockRange, macros) {
+  const body = macros.map(m => [
+    `        ${m.id}: ${m.id} {`,
+    `            compatible = "zmk,behavior-macro";`,
+    `            #binding-cells = <0>;`,
+    `            bindings = <${m.tokens.join(' ')}>;`,
+    `            label = "${m.label}";`,
+    `        };`,
+  ].join('\n')).join('\n\n');
+  const newBody = `\n${body}\n    `;
+  return originalKeymapText.slice(0, blockRange.braceStart + 1) + newBody + originalKeymapText.slice(blockRange.braceEnd);
+}
+
+function extractBlock(text, startMarker) {
+  const markerIdx = text.indexOf(startMarker);
+  if (markerIdx === -1) return null;
+  const braceIdx = text.indexOf('{', markerIdx);
+  if (braceIdx === -1) throw new Error('no { after marker ' + startMarker);
+  let depth = 0;
+  for (let i = braceIdx; i < text.length; i++) {
+    if (text[i] === '{') depth++;
+    else if (text[i] === '}') {
+      depth--;
+      if (depth === 0) return { start: markerIdx, braceStart: braceIdx, braceEnd: i, end: i + 1 };
+    }
+  }
+  throw new Error('unbalanced braces for block ' + startMarker);
+}
+
+function readScalerFraction(scopeText, processorName) {
+  const re = new RegExp('&' + processorName + String.raw`\s+(-?\d+)\s+(-?\d+)`);
+  const m = scopeText.match(re);
+  if (!m) return null;
+  return { num: Number(m[1]), den: Number(m[2]) };
+}
+
+function writeScalerFraction(fullText, blockRange, processorName, num, den) {
+  const scopeText = fullText.slice(blockRange.braceStart, blockRange.braceEnd + 1);
+  const existingRe = new RegExp('(&' + processorName + String.raw`\s+)(-?\d+)(\s+)(-?\d+)`);
+  if (existingRe.test(scopeText)) {
+    const newScope = scopeText.replace(existingRe, `$1${num}$3${den}`);
+    return fullText.slice(0, blockRange.braceStart) + newScope + fullText.slice(blockRange.braceEnd + 1);
+  }
+  const propRe = /input-processors\s*=\s*(<)/;
+  const propMatch = scopeText.match(propRe);
+  if (!propMatch) throw new Error('no input-processors property found to insert ' + processorName + ' into');
+  const insertPos = propMatch.index + propMatch[0].length;
+  const insertion = `&${processorName} ${num} ${den}>, <`;
+  const newScope = scopeText.slice(0, insertPos) + insertion + scopeText.slice(insertPos);
+  return fullText.slice(0, blockRange.braceStart) + newScope + fullText.slice(blockRange.braceEnd + 1);
+}
+
+function readInvertFlags(scopeText, processorName, flagNames) {
+  const re = new RegExp('&' + processorName + String.raw`\s*\(([^)]*)\)`);
+  const m = scopeText.match(re);
+  const result = {};
+  flagNames.forEach(f => { result[f] = false; });
+  if (!m) return result;
+  flagNames.forEach(f => { if (m[1].includes(f)) result[f] = true; });
+  return result;
+}
+
+function writeInvertFlags(fullText, blockRange, processorName, flags) {
+  const scopeText = fullText.slice(blockRange.braceStart, blockRange.braceEnd + 1);
+  const re = new RegExp('(&' + processorName + String.raw`\s*\()([^)]*)(\))`);
+  const activeFlags = Object.entries(flags).filter(([, v]) => v).map(([k]) => k);
+  const replacement = activeFlags.length ? activeFlags.join(' | ') : '0';
+  if (!re.test(scopeText)) return fullText; // processor not present in this file; nothing to toggle
+  const newScope = scopeText.replace(re, `$1${replacement}$3`);
+  return fullText.slice(0, blockRange.braceStart) + newScope + fullText.slice(blockRange.braceEnd + 1);
+}
+
+/* ============================================================
+ * 2b. ZMK Studio live-connection binding translation
+ *
+ * Converts between our devicetree-style token strings (e.g. "&kp Q",
+ * "&mo 1") and the structured {behaviorId, param1, param2} BehaviorBinding
+ * that ZMK Studio's RPC protocol uses. HID usage IDs and modifier/command
+ * constants below are taken directly from ZMK's own headers:
+ *   app/include/dt-bindings/zmk/hid_usage.h  (base HID usage IDs)
+ *   app/include/dt-bindings/zmk/modifiers.h  (LS() = (mods << 24) | keycode)
+ *   app/include/dt-bindings/zmk/bt.h         (BT_* command IDs)
+ *   app/include/dt-bindings/zmk/pointing.h   (MB1..MB5 bit flags)
+ * Only the "core" ZMK behaviors below are supported live; combos, macros,
+ * and trackball/scroll settings are not exposed by the Studio protocol at
+ * all (confirmed against zmk.dev/docs/features/studio) and remain file-only.
+ * ========================================================== */
+const HID_KEYCODES = {
+  A: 0x04, B: 0x05, C: 0x06, D: 0x07, E: 0x08, F: 0x09, G: 0x0A, H: 0x0B, I: 0x0C, J: 0x0D,
+  K: 0x0E, L: 0x0F, M: 0x10, N: 0x11, O: 0x12, P: 0x13, Q: 0x14, R: 0x15, S: 0x16, T: 0x17,
+  U: 0x18, V: 0x19, W: 0x1A, X: 0x1B, Y: 0x1C, Z: 0x1D,
+  N1: 0x1E, N2: 0x1F, N3: 0x20, N4: 0x21, N5: 0x22, N6: 0x23, N7: 0x24, N8: 0x25, N9: 0x26, N0: 0x27,
+  ENTER: 0x28, ESC: 0x29, BACKSPACE: 0x2A, TAB: 0x2B, SPACE: 0x2C,
+  MINUS: 0x2D, EQUAL: 0x2E, LEFT_BRACKET: 0x2F, RIGHT_BRACKET: 0x30, BACKSLASH: 0x31,
+  SEMI: 0x33, SQT: 0x34, GRAVE: 0x35, COMMA: 0x36, DOT: 0x37, SLASH: 0x38,
+  F1: 0x3A, F2: 0x3B, F3: 0x3C, F4: 0x3D, F5: 0x3E, F6: 0x3F, F7: 0x40, F8: 0x41, F9: 0x42, F10: 0x43, F11: 0x44, F12: 0x45,
+  PRINTSCREEN: 0x46,
+  HOME: 0x4A, PAGE_UP: 0x4B, DELETE: 0x4C, END: 0x4D, PAGE_DOWN: 0x4E,
+  RIGHT_ARROW: 0x4F, RIGHT: 0x4F, LEFT_ARROW: 0x50, LEFT: 0x50, DOWN: 0x51, DOWN_ARROW: 0x51, UP: 0x52, UP_ARROW: 0x52,
+  KP_MULTIPLY: 0x55,
+  LCTRL: 0xE0, LSHIFT: 0xE1, LALT: 0xE2, LGUI: 0xE3, RCTRL: 0xE4, RSHIFT: 0xE5, RALT: 0xE6, RGUI: 0xE7,
+};
+const MOD_LSFT = 0x02;
+const SHIFTED_KEYCODES = {
+  EXCLAMATION: HID_KEYCODES.N1, AT: HID_KEYCODES.N2, HASH: HID_KEYCODES.N3, DOLLAR: HID_KEYCODES.N4,
+  PERCENT: HID_KEYCODES.N5, AMPS: HID_KEYCODES.N7, ASTRK: HID_KEYCODES.N8,
+  LEFT_PARENTHESIS: HID_KEYCODES.N9, RIGHT_PARENTHESIS: HID_KEYCODES.N0,
+  UNDERSCORE: HID_KEYCODES.MINUS, PLUS: HID_KEYCODES.EQUAL,
+  LEFT_BRACE: HID_KEYCODES.LEFT_BRACKET, RIGHT_BRACE: HID_KEYCODES.RIGHT_BRACKET,
+  COLON: HID_KEYCODES.SEMI, PIPE: HID_KEYCODES.BACKSLASH, TILDE: HID_KEYCODES.GRAVE,
+};
+const BT_CMD = { BT_SEL: 3, BT_CLR: 0, BT_CLR_ALL: 4, BT_NXT: 1, BT_PRV: 2, BT_DISC: 5 };
+const MOUSE_BUTTONS = { MB1: 1, MB2: 2, MB3: 4, MB4: 8, MB5: 16 };
+const CORE_BEHAVIOR_DISPLAY_NAMES = {
+  'Key Press': 'kp', 'Transparent': 'trans', 'None': 'none', 'Momentary Layer': 'mo',
+  'Layer-Tap': 'lt', 'To Layer': 'to', 'Sticky Key': 'sk', 'Sticky Layer': 'sl',
+  'Toggle Layer': 'tog', 'Bluetooth': 'bt', 'Mouse Key Press': 'mkp',
+};
+
+function keycodeNameToHidParam(name) {
+  if (name in HID_KEYCODES) return HID_KEYCODES[name];
+  if (name in SHIFTED_KEYCODES) return (MOD_LSFT << 24) | SHIFTED_KEYCODES[name];
+  return null;
+}
+
+function hidParamToKeycodeName(param) {
+  const mods = (param >>> 24) & 0xFF;
+  const base = param & 0x00FFFFFF;
+  const table = mods === MOD_LSFT ? SHIFTED_KEYCODES : (mods === 0 ? HID_KEYCODES : null);
+  if (!table) return null;
+  const found = Object.entries(table).find(([, v]) => v === base);
+  return found ? found[0] : null;
+}
+
+// token (e.g. "&kp Q") -> {behaviorId, param1, param2}, or null if this
+// behavior/keycode combination isn't supported for live editing.
+function tokenToBehaviorBinding(token, behaviorIdByKind) {
+  const m = token.match(/^&(\S+)\s*(.*)$/);
+  if (!m) return null;
+  const [, behavior, rest] = m;
+  const args = rest.trim().split(/\s+/).filter(Boolean);
+  const idFor = (kind) => behaviorIdByKind[kind];
+  switch (behavior) {
+    case 'kp': {
+      const id = idFor('kp'); const param1 = keycodeNameToHidParam(args[0]);
+      return (id != null && param1 != null) ? { behaviorId: id, param1, param2: 0 } : null;
+    }
+    case 'trans': return idFor('trans') != null ? { behaviorId: idFor('trans'), param1: 0, param2: 0 } : null;
+    case 'none': return idFor('none') != null ? { behaviorId: idFor('none'), param1: 0, param2: 0 } : null;
+    case 'mo': return idFor('mo') != null ? { behaviorId: idFor('mo'), param1: Number(args[0]), param2: 0 } : null;
+    case 'lt': {
+      const id = idFor('lt'); const param2 = keycodeNameToHidParam(args[1]);
+      return (id != null && param2 != null) ? { behaviorId: id, param1: Number(args[0]), param2 } : null;
+    }
+    case 'to': return idFor('to') != null ? { behaviorId: idFor('to'), param1: Number(args[0]), param2: 0 } : null;
+    case 'sk': return idFor('sk') != null ? { behaviorId: idFor('sk'), param1: Number(args[0]), param2: 0 } : null;
+    case 'sl': return idFor('sl') != null ? { behaviorId: idFor('sl'), param1: Number(args[0]), param2: 0 } : null;
+    case 'tog': return idFor('tog') != null ? { behaviorId: idFor('tog'), param1: Number(args[0]), param2: 0 } : null;
+    case 'bt': {
+      const id = idFor('bt'); const cmd = BT_CMD[args[0]];
+      if (id == null || cmd == null) return null;
+      return { behaviorId: id, param1: cmd, param2: args[1] != null ? Number(args[1]) : 0 };
+    }
+    case 'mkp': {
+      const id = idFor('mkp'); const btn = MOUSE_BUTTONS[args[0]];
+      return (id != null && btn != null) ? { behaviorId: id, param1: btn, param2: 0 } : null;
+    }
+    default: return null; // macros and anything else: not supported live
+  }
+}
+
+// {behaviorId, param1, param2} -> token string, using the device-reported
+// behaviorId -> kind map built after connecting.
+function behaviorBindingToToken(binding, kindByBehaviorId) {
+  const kind = kindByBehaviorId[binding.behaviorId];
+  if (!kind) return `&unknown(id=${binding.behaviorId}) ${binding.param1} ${binding.param2}`;
+  switch (kind) {
+    case 'kp': { const name = hidParamToKeycodeName(binding.param1); return `&kp ${name || '0x' + binding.param1.toString(16)}`; }
+    case 'trans': return '&trans';
+    case 'none': return '&none';
+    case 'mo': return `&mo ${binding.param1}`;
+    case 'lt': { const name = hidParamToKeycodeName(binding.param2); return `&lt ${binding.param1} ${name || binding.param2}`; }
+    case 'to': return `&to ${binding.param1}`;
+    case 'sk': return `&sk ${binding.param1}`;
+    case 'sl': return `&sl ${binding.param1}`;
+    case 'tog': return `&tog ${binding.param1}`;
+    case 'bt': {
+      const cmdName = Object.entries(BT_CMD).find(([, v]) => v === binding.param1);
+      const needsIndex = cmdName && (cmdName[0] === 'BT_SEL' || cmdName[0] === 'BT_DISC');
+      return cmdName ? `&bt ${cmdName[0]}${needsIndex ? ' ' + binding.param2 : ''}` : `&bt ${binding.param1} ${binding.param2}`;
+    }
+    case 'mkp': { const name = Object.entries(MOUSE_BUTTONS).find(([, v]) => v === binding.param1); return `&mkp ${name ? name[0] : binding.param1}`; }
+    default: return `&${kind} ${binding.param1} ${binding.param2}`;
+  }
+}
+
+/* ============================================================
+ * 3. Application state + File System Access I/O
+ * ========================================================== */
+const state = {
+  dirHandle: null,
+  fileHandles: {},        // path string -> FileSystemFileHandle
+  originalTexts: {},       // path string -> original file text
+  layers: [],              // [{originalName, name, tokens}] - originalName absent => brand new layer
+  currentLayer: null,      // current layer's `name` (display name, may differ from originalName after rename)
+  combos: [],               // [{name, binding, keyPositions, timeoutMs}]
+  combosBlockRange: null,
+  macros: [],               // [{id, label, tokens}]
+  macrosBlockRange: null,
+  dirty: false,
+  trackball: null,         // parsed settings, see loadTrackballSettings()
+  onPickerSelect: null,    // callback(token) for the currently open picker
+};
+
+const PATHS = {
+  keymap: ['config', 'keymap.keymap'],
+  rightOverlay: ['boards', 'shields', 'torabo_tsuki_lp', 'torabo_tsuki_lp_right.overlay'],
+  splitListenerOverlay: ['snippets', 'input-split-listener', 'input-split-listener.overlay'],
+};
+
+async function getFileHandleByPath(root, parts) {
+  let dir = root;
+  for (let i = 0; i < parts.length - 1; i++) {
+    dir = await dir.getDirectoryHandle(parts[i]);
+  }
+  return dir.getFileHandle(parts[parts.length - 1]);
+}
+
+async function openFolder() {
+  if (!window.showDirectoryPicker) {
+    alert('お使いのブラウザは File System Access API に対応していません。Chrome または Edge で開いてください。');
+    return;
+  }
+  const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+  state.dirHandle = dirHandle;
+
+  const keyToPath = { keymap: PATHS.keymap, rightOverlay: PATHS.rightOverlay, splitListenerOverlay: PATHS.splitListenerOverlay };
+  for (const [key, parts] of Object.entries(keyToPath)) {
+    const fh = await getFileHandleByPath(dirHandle, parts);
+    state.fileHandles[key] = fh;
+    const file = await fh.getFile();
+    state.originalTexts[key] = await file.text();
+  }
+
+  state.layers = parseKeymap(state.originalTexts.keymap).map(l => ({ originalName: l.name, name: l.name, tokens: l.tokens.slice() }));
+  state.currentLayer = state.layers[0].name;
+
+  const comboResult = parseCombos(state.originalTexts.keymap);
+  state.combos = comboResult.combos;
+  state.combosBlockRange = comboResult.blockRange;
+
+  const macroResult = parseMacros(state.originalTexts.keymap);
+  state.macros = macroResult.macros;
+  state.macrosBlockRange = macroResult.blockRange;
+
+  loadTrackballSettings();
+
+  document.getElementById('status').textContent = 'フォルダ: ' + dirHandle.name;
+  document.getElementById('btn-save').disabled = false;
+  setDirty(false);
+  renderLayerTabs();
+  renderBoard();
+  renderTrackballPanel();
+  renderComboPanel();
+  renderMacroPanel();
+}
+
+function setDirty(v) {
+  state.dirty = v;
+  document.getElementById('dirty-badge').style.display = v ? 'inline' : 'none';
+}
+
+async function ensureWritePermission(fileHandle) {
+  const opts = { mode: 'readwrite' };
+  if ((await fileHandle.queryPermission(opts)) === 'granted') return true;
+  return (await fileHandle.requestPermission(opts)) === 'granted';
+}
+
+async function saveAll() {
+  if (!state.dirHandle) return;
+  try {
+    // 1. keymap.keymap: layers (rename/rebind/add), then combos, then macros —
+    // each pass re-locates its own block by content, so order is safe.
+    let newKeymapText = serializeKeymapFull(state.originalTexts.keymap, state.layers);
+    if (state.combosBlockRange) {
+      const comboBlock = extractBlock(newKeymapText, 'combos {');
+      newKeymapText = serializeCombos(newKeymapText, comboBlock, state.combos);
+    }
+    if (state.macrosBlockRange) {
+      const macroBlock = extractBlock(newKeymapText, 'macros {');
+      newKeymapText = serializeMacros(newKeymapText, macroBlock, state.macros);
+    }
+    await writeFile('keymap', newKeymapText);
+
+    // 2. right.overlay (main pointer speed + scroll-layer scroll speed + invert flags)
+    let rightText = state.originalTexts.rightOverlay;
+    const tb = state.trackball;
+    const outerBlock = extractBlock(rightText, '&pointing_listener');
+    if (outerBlock) {
+      rightText = writeScalerFraction(rightText, outerBlock, 'zip_xy_scaler', tb.right.xy.num, tb.right.xy.den);
+      rightText = writeInvertFlags(rightText, extractBlock(rightText, '&pointing_listener'), 'zip_xy_transform', tb.right.xyInvert);
+      const outerBlock2 = extractBlock(rightText, '&pointing_listener');
+      const outerContent = rightText.slice(outerBlock2.braceStart, outerBlock2.braceEnd + 1);
+      const scrollBlockRel = extractBlock(outerContent, 'scroll_layer');
+      if (scrollBlockRel) {
+        const scrollBlockAbs = {
+          braceStart: outerBlock2.braceStart + scrollBlockRel.braceStart,
+          braceEnd: outerBlock2.braceStart + scrollBlockRel.braceEnd,
+        };
+        rightText = writeScalerFraction(rightText, scrollBlockAbs, 'zip_scroll_scaler', tb.right.scroll.num, tb.right.scroll.den);
+      }
+    }
+    state.originalTexts.rightOverlay = rightText;
+    await writeFile('rightOverlay', rightText);
+
+    // 3. input-split-listener.overlay (left / double-ball side speed + invert flags)
+    let splitText = state.originalTexts.splitListenerOverlay;
+    const splitBlock = extractBlock(splitText, 'pointing_device_split_listener:');
+    if (splitBlock) {
+      splitText = writeScalerFraction(splitText, splitBlock, 'zip_xy_scaler', tb.split.xy.num, tb.split.xy.den);
+      splitText = writeScalerFraction(splitText, extractBlock(splitText, 'pointing_device_split_listener:'), 'zip_scroll_scaler', tb.split.scroll.num, tb.split.scroll.den);
+      splitText = writeInvertFlags(splitText, extractBlock(splitText, 'pointing_device_split_listener:'), 'zip_xy_transform', tb.split.xyInvert);
+      splitText = writeInvertFlags(splitText, extractBlock(splitText, 'pointing_device_split_listener:'), 'zip_scroll_transform', tb.split.scrollInvert);
+    }
+    state.originalTexts.splitListenerOverlay = splitText;
+    await writeFile('splitListenerOverlay', splitText);
+
+    state.originalTexts.keymap = newKeymapText;
+    state.layers.forEach(l => { l.originalName = l.name; });
+    setDirty(false);
+    document.getElementById('status').textContent = '保存しました(' + new Date().toLocaleTimeString() + ')';
+  } catch (e) {
+    console.error(e);
+    alert('保存に失敗しました: ' + e.message);
+  }
+}
+
+async function writeFile(key, text) {
+  const fh = state.fileHandles[key];
+  const ok = await ensureWritePermission(fh);
+  if (!ok) throw new Error('書き込み権限が許可されませんでした (' + key + ')');
+  const writable = await fh.createWritable();
+  await writable.write(text);
+  await writable.close();
+}
+
+/* ============================================================
+ * 3b. Live connection (ZMK Studio RPC over USB / BLE)
+ *
+ * EXPERIMENTAL: built against the documented protocol
+ * (zmk.dev/docs/development/studio-rpc-protocol) and the official
+ * @zmkfirmware/zmk-studio-ts-client, but never tested against a real
+ * device in this environment. Only per-key binding edits, layer rename,
+ * and adding a layer (into a pre-provisioned `status = "reserved"` slot)
+ * are supported live -- combos, macros, and trackball/scroll speed are
+ * not exposed by the Studio protocol at all and stay file-only.
+ * ========================================================== */
+const live = {
+  connected: false,
+  transportLabel: '',
+  conn: null,
+  behaviorIdByKind: {},
+  kindByBehaviorId: {},
+  keymap: null,      // { layers: [{id, name, bindings}], availableLayers, maxLayerNameLength }
+  currentLayerId: null,
+  dirty: false,
+};
+
+async function liveConnect(transportKind) {
+  try {
+    const transport = transportKind === 'usb' ? await connectSerial() : await connectGatt();
+    live.conn = create_rpc_connection(transport);
+    live.transportLabel = transport.label + (transportKind === 'ble' ? ' (BLE)' : ' (USB)');
+    live.connected = true;
+
+    const listResp = await call_rpc(live.conn, { behaviors: { listAllBehaviors: true } });
+    const ids = listResp.behaviors.listAllBehaviors.behaviors;
+    live.behaviorIdByKind = {};
+    live.kindByBehaviorId = {};
+    for (const id of ids) {
+      const detailsResp = await call_rpc(live.conn, { behaviors: { getBehaviorDetails: { behaviorId: id } } });
+      const details = detailsResp.behaviors.getBehaviorDetails;
+      const kind = CORE_BEHAVIOR_DISPLAY_NAMES[details.displayName];
+      if (kind) { live.behaviorIdByKind[kind] = id; live.kindByBehaviorId[id] = kind; }
+    }
+
+    const keymapResp = await call_rpc(live.conn, { keymap: { getKeymap: true } });
+    live.keymap = keymapResp.keymap.getKeymap;
+    live.currentLayerId = live.keymap.layers[0].id;
+    live.dirty = false;
+    renderLivePanel();
+  } catch (e) {
+    console.error(e);
+    alert('接続に失敗しました: ' + (e && e.message ? e.message : e) + '\n(USBケーブルの抜き差しや、他のアプリがポートを使用中でないかご確認ください)');
+  }
+}
+
+function liveDisconnect() {
+  live.connected = false;
+  live.conn = null;
+  live.keymap = null;
+  live.behaviorIdByKind = {};
+  live.kindByBehaviorId = {};
+  renderLivePanel();
+}
+
+function liveCurrentLayer() {
+  return live.keymap.layers.find(l => l.id === live.currentLayerId);
+}
+
+async function liveSetBinding(pos, token) {
+  const binding = tokenToBehaviorBinding(token, live.behaviorIdByKind);
+  if (!binding) {
+    alert('このビヘイビア/キーはライブ接続では未対応です(このツールでは &kp, &trans, &none, &mo, &lt, &to, &sk, &sl, &tog, &bt, &mkp のみ対応)。\nファイル編集モードをお使いください。');
+    return;
+  }
+  try {
+    const layer = liveCurrentLayer();
+    const resp = await call_rpc(live.conn, { keymap: { setLayerBinding: { layerId: layer.id, keyPosition: pos, binding } } });
+    if (resp.keymap.setLayerBinding !== 0 /* SET_LAYER_BINDING_RESP_OK */) {
+      alert('デバイスが設定を拒否しました(コード: ' + resp.keymap.setLayerBinding + ')');
+      return;
+    }
+    layer.bindings[pos] = binding;
+    live.dirty = true;
+    renderLivePanel();
+  } catch (e) {
+    console.error(e);
+    alert('設定の送信に失敗しました: ' + (e && e.message ? e.message : e));
+  }
+}
+
+async function liveRenameLayer(layer, newName) {
+  try {
+    const resp = await call_rpc(live.conn, { keymap: { setLayerProps: { layerId: layer.id, name: newName } } });
+    if (resp.keymap.setLayerProps !== 0 /* SET_LAYER_PROPS_RESP_OK */) {
+      alert('名前の変更に失敗しました(コード: ' + resp.keymap.setLayerProps + ')');
+      return;
+    }
+    layer.name = newName;
+    live.dirty = true;
+    renderLivePanel();
+  } catch (e) {
+    console.error(e);
+    alert('名前の変更に失敗しました: ' + (e && e.message ? e.message : e));
+  }
+}
+
+async function liveAddLayer() {
+  try {
+    const resp = await call_rpc(live.conn, { keymap: { addLayer: {} } });
+    if (resp.keymap.addLayer.err !== undefined) {
+      alert('レイヤーを追加できませんでした。予備の枠(status = "reserved" のレイヤー)を使い切っている可能性があります。\nファイル編集モードで予備レイヤーを追加してビルド・書き込みし直してください。');
+      return;
+    }
+    const newLayer = resp.keymap.addLayer.ok.layer;
+    live.keymap.layers.splice(resp.keymap.addLayer.ok.index, 0, newLayer);
+    live.currentLayerId = newLayer.id;
+    live.dirty = true;
+    renderLivePanel();
+  } catch (e) {
+    console.error(e);
+    alert('レイヤーの追加に失敗しました: ' + (e && e.message ? e.message : e));
+  }
+}
+
+async function liveSave() {
+  try {
+    await call_rpc(live.conn, { keymap: { saveChanges: true } });
+    live.dirty = false;
+    renderLivePanel();
+    alert('キーボードに保存しました。');
+  } catch (e) {
+    console.error(e);
+    alert('保存に失敗しました: ' + (e && e.message ? e.message : e));
+  }
+}
+
+function renderLivePanel() {
+  const root = document.getElementById('panel-live');
+  if (!live.connected) {
+    root.innerHTML = `
+      <div class="notice">
+        実験的機能です。実機での動作確認はできていません。うまく動かない場合は、下の「ファイル編集モード」の
+        各タブ(キーマップ/コンボ/マクロ/トラックボール)で編集し、コミット/プッシュ→ビルド→書き込みをお使いください。<br>
+        ライブ接続で設定できるのは <code>&amp;kp</code> <code>&amp;trans</code> <code>&amp;none</code>
+        <code>&amp;mo</code> <code>&amp;lt</code> <code>&amp;to</code> <code>&amp;sk</code> <code>&amp;sl</code>
+        <code>&amp;tog</code> <code>&amp;bt</code> <code>&amp;mkp</code> のみです。マクロの割り当てや、
+        コンボ・トラックボール速度の変更はここでは反映できません。<br>
+        Bluetooth接続はブラウザの標準機能(Web Bluetooth)を使った実験的対応で、USB接続より不安定な場合があります。
+      </div>
+      <button id="btn-live-usb">USBで接続</button>
+      <button id="btn-live-ble">Bluetoothで接続(実験的)</button>
+    `;
+    root.querySelector('#btn-live-usb').addEventListener('click', () => liveConnect('usb'));
+    root.querySelector('#btn-live-ble').addEventListener('click', () => liveConnect('ble'));
+    return;
+  }
+
+  const layer = liveCurrentLayer();
+  root.innerHTML = `
+    <div class="notice">
+      接続中: ${live.transportLabel}${live.dirty ? '(未保存の変更があります)' : ''}
+      <button id="btn-live-disconnect" style="float:right;">切断</button>
+      <button id="btn-live-save" style="float:right;margin-right:8px;" ${live.dirty ? '' : 'disabled'}>キーボードに保存</button>
+    </div>
+    <div id="live-layer-tabs" class="layer-tabs"></div>
+    <div id="live-board"></div>
+  `;
+  root.querySelector('#btn-live-disconnect').addEventListener('click', liveDisconnect);
+  root.querySelector('#btn-live-save').addEventListener('click', liveSave);
+
+  const tabsRoot = root.querySelector('#live-layer-tabs');
+  live.keymap.layers.forEach(l => {
+    const b = document.createElement('button');
+    b.textContent = l.name;
+    b.className = l.id === live.currentLayerId ? 'active' : '';
+    b.title = 'ダブルクリックで名前を変更';
+    b.addEventListener('click', () => { live.currentLayerId = l.id; renderLivePanel(); });
+    b.addEventListener('dblclick', () => {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = l.name;
+      b.replaceWith(input);
+      input.focus();
+      input.select();
+      input.addEventListener('blur', () => {
+        const v = input.value.trim();
+        if (v && v !== l.name) liveRenameLayer(l, v); else renderLivePanel();
+      });
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); if (e.key === 'Escape') renderLivePanel(); });
+    });
+    tabsRoot.appendChild(b);
+  });
+  const addBtn = document.createElement('button');
+  addBtn.textContent = '+ レイヤーを追加(予備を使用)';
+  addBtn.addEventListener('click', liveAddLayer);
+  tabsRoot.appendChild(addBtn);
+
+  const board = root.querySelector('#live-board');
+  const scale = 0.52;
+  const { minX, minY, maxX, maxY } = computeBoardMetrics();
+  board.style.width = ((maxX - minX) * scale + 48) + 'px';
+  board.style.height = ((maxY - minY) * scale + 48) + 'px';
+  board.classList.add('board');
+  appendTrackballVisual(board, scale, minX, minY);
+  LAYOUT_XS.filter(k => !k.trackball).forEach(k => {
+    const div = document.createElement('div');
+    div.className = 'key';
+    positionKeyDiv(div, k, scale, minX, minY);
+    const posSpan = document.createElement('span');
+    posSpan.className = 'pos';
+    posSpan.textContent = k.pos;
+    div.appendChild(posSpan);
+    const binding = layer.bindings[k.pos];
+    const label = document.createElement('span');
+    label.textContent = binding ? shortLabel(behaviorBindingToToken(binding, live.kindByBehaviorId)) : '?';
+    div.appendChild(label);
+    div.addEventListener('click', () => {
+      const current = binding ? behaviorBindingToToken(binding, live.kindByBehaviorId) : '&trans';
+      openPicker(current, (token) => liveSetBinding(k.pos, token));
+    });
+    board.appendChild(div);
+  });
+}
+
+/* ============================================================
+ * 4. Trackball / scroll speed settings
+ * ========================================================== */
+function loadTrackballSettings() {
+  const rightText = state.originalTexts.rightOverlay;
+  const splitText = state.originalTexts.splitListenerOverlay;
+
+  const outerBlock = extractBlock(rightText, '&pointing_listener');
+  const outerContent = outerBlock ? rightText.slice(outerBlock.braceStart, outerBlock.braceEnd + 1) : '';
+  const scrollBlockRel = outerBlock ? extractBlock(outerContent, 'scroll_layer') : null;
+  const scrollContent = scrollBlockRel ? outerContent.slice(scrollBlockRel.braceStart, scrollBlockRel.braceEnd + 1) : '';
+
+  const splitBlock = extractBlock(splitText, 'pointing_device_split_listener:');
+  const splitContent = splitBlock ? splitText.slice(splitBlock.braceStart, splitBlock.braceEnd + 1) : '';
+
+  state.trackball = {
+    right: {
+      xy: readScalerFraction(outerContent, 'zip_xy_scaler') || { num: 1, den: 1 },
+      xyInvert: readInvertFlags(outerContent, 'zip_xy_transform', ['INPUT_TRANSFORM_X_INVERT', 'INPUT_TRANSFORM_Y_INVERT']),
+      scroll: readScalerFraction(scrollContent, 'zip_scroll_scaler') || { num: 1, den: 1 },
+    },
+    split: {
+      xy: readScalerFraction(splitContent, 'zip_xy_scaler') || { num: 1, den: 1 },
+      xyInvert: readInvertFlags(splitContent, 'zip_xy_transform', ['INPUT_TRANSFORM_X_INVERT', 'INPUT_TRANSFORM_Y_INVERT']),
+      scroll: readScalerFraction(splitContent, 'zip_scroll_scaler') || { num: 1, den: 1 },
+      scrollInvert: readInvertFlags(splitContent, 'zip_scroll_transform', ['INPUT_TRANSFORM_Y_INVERT']),
+    },
+  };
+}
+
+function fracToPercent(f) { return Math.round((f.num / f.den) * 100); }
+function percentToFrac(p) { return { num: p, den: 100 }; }
+
+function renderTrackballPanel() {
+  const root = document.getElementById('panel-trackball');
+  const tb = state.trackball;
+  root.innerHTML = `
+    <div class="notice">
+      速度はスライダーで % 指定します(100% = 現在の初期値ではなく「等倍」)。
+      保存すると overlay ファイル内の該当する数値だけが書き換わります。<br>
+      トラックボール本体のCPI(センサー感度そのもの)は、このリポジトリでは値を持っておらず
+      外部モジュール(zmk-driver-paw3222)側の既定値依存のため、本ツールでは変更できません。
+    </div>
+
+    <div class="tb-card">
+      <h3>右手側(central)トラックボール — 通常時のポインタ速度</h3>
+      <div class="path">boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_right.overlay — &amp;pointing_listener</div>
+      <div class="tb-row">
+        <label for="r-xy">ポインタ移動速度</label>
+        <input type="range" id="r-xy" min="10" max="300" value="${fracToPercent(tb.right.xy)}">
+        <span class="val" id="r-xy-val">${fracToPercent(tb.right.xy)}%</span>
+      </div>
+      <div class="tb-row checkbox">
+        <label><input type="checkbox" id="r-xy-invx" ${tb.right.xyInvert.INPUT_TRANSFORM_X_INVERT ? 'checked' : ''}> X軸を反転</label>
+      </div>
+      <div class="tb-row checkbox">
+        <label><input type="checkbox" id="r-xy-invy" ${tb.right.xyInvert.INPUT_TRANSFORM_Y_INVERT ? 'checked' : ''}> Y軸を反転</label>
+      </div>
+    </div>
+
+    <div class="tb-card">
+      <h3>右手側(central)トラックボール — スクロールレイヤー使用時のスクロール速度</h3>
+      <div class="path">同ファイル — &amp;pointing_listener &gt; scroll_layer (layer 6)</div>
+      <div class="tb-row">
+        <label for="r-scroll">スクロール速度</label>
+        <input type="range" id="r-scroll" min="10" max="300" value="${fracToPercent(tb.right.scroll)}">
+        <span class="val" id="r-scroll-val">${fracToPercent(tb.right.scroll)}%</span>
+      </div>
+    </div>
+
+    <div class="tb-card">
+      <h3>左手側 / ダブルボール構成のトラックボール</h3>
+      <div class="path">snippets/input-split-listener/input-split-listener.overlay</div>
+      <div class="tb-row">
+        <label for="s-xy">ポインタ移動速度</label>
+        <input type="range" id="s-xy" min="10" max="300" value="${fracToPercent(tb.split.xy)}">
+        <span class="val" id="s-xy-val">${fracToPercent(tb.split.xy)}%</span>
+      </div>
+      <div class="tb-row">
+        <label for="s-scroll">スクロール速度</label>
+        <input type="range" id="s-scroll" min="10" max="300" value="${fracToPercent(tb.split.scroll)}">
+        <span class="val" id="s-scroll-val">${fracToPercent(tb.split.scroll)}%</span>
+      </div>
+      <div class="tb-row checkbox">
+        <label><input type="checkbox" id="s-xy-invx" ${tb.split.xyInvert.INPUT_TRANSFORM_X_INVERT ? 'checked' : ''}> X軸を反転</label>
+      </div>
+      <div class="tb-row checkbox">
+        <label><input type="checkbox" id="s-xy-invy" ${tb.split.xyInvert.INPUT_TRANSFORM_Y_INVERT ? 'checked' : ''}> Y軸を反転</label>
+      </div>
+      <div class="tb-row checkbox">
+        <label><input type="checkbox" id="s-scroll-invy" ${tb.split.scrollInvert.INPUT_TRANSFORM_Y_INVERT ? 'checked' : ''}> スクロール方向を反転</label>
+      </div>
+    </div>
+  `;
+
+  const bind = (id, cb) => document.getElementById(id).addEventListener('input', cb);
+  bind('r-xy', e => { tb.right.xy = percentToFrac(+e.target.value); document.getElementById('r-xy-val').textContent = e.target.value + '%'; setDirty(true); });
+  bind('r-scroll', e => { tb.right.scroll = percentToFrac(+e.target.value); document.getElementById('r-scroll-val').textContent = e.target.value + '%'; setDirty(true); });
+  bind('s-xy', e => { tb.split.xy = percentToFrac(+e.target.value); document.getElementById('s-xy-val').textContent = e.target.value + '%'; setDirty(true); });
+  bind('s-scroll', e => { tb.split.scroll = percentToFrac(+e.target.value); document.getElementById('s-scroll-val').textContent = e.target.value + '%'; setDirty(true); });
+  bind('r-xy-invx', e => { tb.right.xyInvert.INPUT_TRANSFORM_X_INVERT = e.target.checked; setDirty(true); });
+  bind('r-xy-invy', e => { tb.right.xyInvert.INPUT_TRANSFORM_Y_INVERT = e.target.checked; setDirty(true); });
+  bind('s-xy-invx', e => { tb.split.xyInvert.INPUT_TRANSFORM_X_INVERT = e.target.checked; setDirty(true); });
+  bind('s-xy-invy', e => { tb.split.xyInvert.INPUT_TRANSFORM_Y_INVERT = e.target.checked; setDirty(true); });
+  bind('s-scroll-invy', e => { tb.split.scrollInvert.INPUT_TRANSFORM_Y_INVERT = e.target.checked; setDirty(true); });
+}
+
+/* ============================================================
+ * 4b. Combo editor
+ * ========================================================== */
+function renderComboPanel() {
+  const root = document.getElementById('panel-combo');
+  root.innerHTML = `
+    <div class="notice">
+      複数のキーを同時に押したときに発動する「コンボ」を編集します。保存すると
+      <code>config/keymap.keymap</code> の <code>combos { ... }</code> ブロックが書き換わります。
+    </div>
+    <div id="combo-list"></div>
+    <button id="btn-add-combo">+ コンボを追加</button>
+  `;
+  const list = root.querySelector('#combo-list');
+  state.combos.forEach((combo, idx) => {
+    const card = document.createElement('div');
+    card.className = 'item-card';
+    card.innerHTML = `
+      <div class="row">
+        <input type="text" class="name-input" value="${combo.name}">
+        <button class="binding-btn">${shortLabel(combo.binding)}</button>
+        <button class="delete-btn btn-danger">削除</button>
+      </div>
+      <div class="row">
+        <span class="chip">キー: ${combo.keyPositions.join(', ') || '(未選択)'}</span>
+        <button class="edit-positions-btn">位置を編集</button>
+        <label style="font-size:12px;margin-left:8px;">タイムアウト(ms):
+          <input type="text" class="timeout-input" value="${combo.timeoutMs ?? ''}" style="width:60px;">
+        </label>
+      </div>
+    `;
+    card.querySelector('.name-input').addEventListener('change', e => {
+      const v = e.target.value.trim();
+      if (!isValidLayerName(v)) { alert('コンボ名は英数字とアンダースコアのみ使えます。'); e.target.value = combo.name; return; }
+      combo.name = v;
+      setDirty(true);
+    });
+    card.querySelector('.binding-btn').addEventListener('click', () => {
+      openPicker(combo.binding, (token) => {
+        combo.binding = token;
+        setDirty(true);
+        renderComboPanel();
+      });
+    });
+    card.querySelector('.delete-btn').addEventListener('click', () => {
+      state.combos.splice(idx, 1);
+      setDirty(true);
+      renderComboPanel();
+    });
+    card.querySelector('.edit-positions-btn').addEventListener('click', () => openPositionPicker(combo));
+    card.querySelector('.timeout-input').addEventListener('change', e => {
+      const v = e.target.value.trim();
+      combo.timeoutMs = v === '' ? null : Number(v);
+      setDirty(true);
+    });
+    list.appendChild(card);
+  });
+  root.querySelector('#btn-add-combo').addEventListener('click', () => {
+    let n = state.combos.length;
+    let name = 'combo_' + n;
+    while (state.combos.some(c => c.name === name)) { n++; name = 'combo_' + n; }
+    state.combos.push({ name, binding: '&trans', keyPositions: [], timeoutMs: null });
+    setDirty(true);
+    renderComboPanel();
+  });
+}
+
+function openPositionPicker(combo) {
+  const backdrop = document.getElementById('picker-backdrop');
+  const picker = document.getElementById('picker');
+  const selected = new Set(combo.keyPositions);
+  picker.innerHTML = `
+    <h3>「${combo.name}」で同時押しするキーを選択</h3>
+    <div id="mini-board-container"></div>
+    <div class="close-row">
+      <button id="btn-position-done">決定</button>
+    </div>
+  `;
+  const container = picker.querySelector('#mini-board-container');
+  const refresh = () => renderKeyPositionPicker(container, selected, (pos) => {
+    if (selected.has(pos)) selected.delete(pos); else selected.add(pos);
+    refresh();
+  });
+  refresh();
+  picker.querySelector('#btn-position-done').addEventListener('click', () => {
+    combo.keyPositions = Array.from(selected).sort((a, b) => a - b);
+    setDirty(true);
+    closePicker();
+    renderComboPanel();
+  });
+  backdrop.classList.add('open');
+}
+
+/* ============================================================
+ * 4c. Macro editor
+ * ========================================================== */
+function renderMacroPanel() {
+  const root = document.getElementById('panel-macro');
+  root.innerHTML = `
+    <div class="notice">
+      連続したキー入力をまとめて実行する「マクロ」を編集します。保存すると
+      <code>config/keymap.keymap</code> の <code>macros { ... }</code> ブロックが書き換わります。
+      ここで作った/名前を変えたマクロは、キーマップタブの割り当てピッカーの「マクロ」欄にも自動で反映されます。
+    </div>
+    <div id="macro-list"></div>
+    <button id="btn-add-macro">+ マクロを追加</button>
+  `;
+  const list = root.querySelector('#macro-list');
+  state.macros.forEach((macro, idx) => {
+    const card = document.createElement('div');
+    card.className = 'item-card';
+    card.innerHTML = `
+      <div class="row">
+        <input type="text" class="id-input" value="${macro.id}" title="内部ID(devicetreeノード名)">
+        <input type="text" class="label-input" value="${macro.label}" title="表示ラベル">
+        <button class="delete-btn btn-danger">削除</button>
+      </div>
+      <div class="macro-steps"></div>
+      <button class="add-step-btn">+ ステップを追加</button>
+    `;
+    const stepsEl = card.querySelector('.macro-steps');
+    const renderSteps = () => {
+      stepsEl.innerHTML = '';
+      macro.tokens.forEach((tok, stepIdx) => {
+        const stepEl = document.createElement('div');
+        stepEl.className = 'macro-step';
+        stepEl.innerHTML = `<button class="step-token">${shortLabel(tok)}</button><button class="step-remove">×</button>`;
+        stepEl.querySelector('.step-token').addEventListener('click', () => {
+          openPicker(tok, (token) => { macro.tokens[stepIdx] = token; setDirty(true); renderSteps(); });
+        });
+        stepEl.querySelector('.step-remove').addEventListener('click', () => {
+          macro.tokens.splice(stepIdx, 1);
+          setDirty(true);
+          renderSteps();
+        });
+        stepsEl.appendChild(stepEl);
+      });
+    };
+    renderSteps();
+    card.querySelector('.id-input').addEventListener('change', e => {
+      const v = e.target.value.trim();
+      if (!isValidLayerName(v)) { alert('マクロIDは英数字とアンダースコアのみ使えます。'); e.target.value = macro.id; return; }
+      if (state.macros.some(m => m !== macro && m.id === v)) { alert('同じIDのマクロが既にあります。'); e.target.value = macro.id; return; }
+      macro.id = v;
+      setDirty(true);
+    });
+    card.querySelector('.label-input').addEventListener('change', e => { macro.label = e.target.value.trim() || macro.id.toUpperCase(); setDirty(true); });
+    card.querySelector('.delete-btn').addEventListener('click', () => {
+      state.macros.splice(idx, 1);
+      setDirty(true);
+      renderMacroPanel();
+    });
+    card.querySelector('.add-step-btn').addEventListener('click', () => {
+      openPicker('&kp A', (token) => { macro.tokens.push(token); setDirty(true); renderSteps(); });
+    });
+    list.appendChild(card);
+  });
+  root.querySelector('#btn-add-macro').addEventListener('click', () => {
+    let n = state.macros.length;
+    let id = 'macro_' + n;
+    while (state.macros.some(m => m.id === id)) { n++; id = 'macro_' + n; }
+    state.macros.push({ id, label: id.toUpperCase(), tokens: [] });
+    setDirty(true);
+    renderMacroPanel();
+  });
+}
+
+/* ============================================================
+ * 5. Keymap tab rendering
+ * ========================================================== */
+function currentLayerTokens() {
+  return state.layers.find(l => l.name === state.currentLayer).tokens;
+}
+
+function shortLabel(token) {
+  if (token === '&trans') return '▽';
+  if (token === '&none') return '';
+  const m = token.match(/^&(\w+)\s*(.*)$/);
+  if (!m) return token;
+  const [, behavior, rest] = m;
+  switch (behavior) {
+    case 'kp': return rest.replace(/_/g, ' ');
+    case 'mo': return 'MO ' + rest;
+    case 'lt': { const [layer, ...kc] = rest.split(/\s+/); return 'LT' + layer + ' ' + kc.join(' '); }
+    case 'to': return 'TO ' + rest;
+    case 'sk': return 'SK ' + rest;
+    case 'sl': return 'SL ' + rest;
+    case 'bt': return 'BT ' + rest.replace('BT_SEL ', '#').replace('BT_CLR_ALL', 'CLR全').replace('BT_CLR', 'CLR');
+    case 'mkp': return rest;
+    case 'parenthesis': return '( )';
+    case 'blacket': return '[ ]';
+    case 'brace': return '{ }';
+    default: return behavior + ' ' + rest;
+  }
+}
+
+function isValidLayerName(name) {
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(name);
+}
+
+function renderLayerTabs() {
+  const root = document.getElementById('layer-tabs');
+  root.innerHTML = '';
+  state.layers.forEach(l => {
+    const b = document.createElement('button');
+    b.textContent = l.name;
+    b.className = l.name === state.currentLayer ? 'active' : '';
+    b.title = 'ダブルクリックで名前を変更';
+    b.addEventListener('click', () => { state.currentLayer = l.name; renderLayerTabs(); renderBoard(); });
+    b.addEventListener('dblclick', () => startRenameLayer(l, b));
+    root.appendChild(b);
+  });
+  const addBtn = document.createElement('button');
+  addBtn.textContent = '+ レイヤーを追加';
+  addBtn.addEventListener('click', addLayer);
+  root.appendChild(addBtn);
+}
+
+function startRenameLayer(layer, buttonEl) {
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = layer.name;
+  input.style.width = Math.max(80, layer.name.length * 9) + 'px';
+  buttonEl.replaceWith(input);
+  input.focus();
+  input.select();
+  const commit = () => {
+    const newName = input.value.trim();
+    if (newName && newName !== layer.name) {
+      if (!isValidLayerName(newName)) {
+        alert('レイヤー名は英数字とアンダースコアのみ、数字始まり不可です(devicetreeのノード名制約)。');
+      } else if (state.layers.some(l => l !== layer && l.name === newName)) {
+        alert('同じ名前のレイヤーが既にあります。');
+      } else {
+        if (state.currentLayer === layer.name) state.currentLayer = newName;
+        layer.name = newName;
+        setDirty(true);
+      }
+    }
+    renderLayerTabs();
+    renderBoard();
+  };
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') input.blur();
+    if (e.key === 'Escape') { input.value = layer.name; input.blur(); }
+  });
+}
+
+function addLayer() {
+  let n = state.layers.length;
+  let name = 'Layer_' + n;
+  while (state.layers.some(l => l.name === name)) { n++; name = 'Layer_' + n; }
+  state.layers.push({ name, tokens: new Array(66).fill('&trans') });
+  state.currentLayer = name;
+  setDirty(true);
+  renderLayerTabs();
+  renderBoard();
+}
+
+function computeBoardMetrics() {
+  const minX = Math.min(...LAYOUT_XS.map(k => k.x));
+  const minY = Math.min(...LAYOUT_XS.map(k => Math.min(k.y, k.ry - KEY_H / 2)));
+  const maxX = Math.max(...LAYOUT_XS.map(k => k.x + KEY_W));
+  const maxY = Math.max(...LAYOUT_XS.map(k => k.y + KEY_H));
+  return { minX, minY, maxX, maxY };
+}
+
+function positionKeyDiv(div, k, scale, minX, minY) {
+  div.style.left = ((k.x - minX) * scale + 24) + 'px';
+  div.style.top = ((k.y - minY) * scale + 24) + 'px';
+  div.style.width = (KEY_W * scale) + 'px';
+  div.style.height = (KEY_H * scale) + 'px';
+  if (k.rot) {
+    const originX = (k.rx - k.x) * scale;
+    const originY = (k.ry - k.y) * scale;
+    div.style.transform = `rotate(${k.rot / 100}deg)`;
+    div.style.transformOrigin = `${originX}px ${originY}px`;
+  }
+}
+
+function appendTrackballVisual(container, scale, minX, minY) {
+  const ball = document.createElement('div');
+  ball.className = 'trackball';
+  const ballSize = TRACKBALL_VISUAL.r * 2 * scale;
+  ball.style.left = ((TRACKBALL_VISUAL.cx - minX) * scale + 24 - ballSize / 2) + 'px';
+  ball.style.top = ((TRACKBALL_VISUAL.cy - minY) * scale + 24 - ballSize / 2) + 'px';
+  ball.style.width = ballSize + 'px';
+  ball.style.height = ballSize + 'px';
+  container.appendChild(ball);
+}
+
+// Reusable small keyboard renderer used by the combo key-position picker.
+// `selected` is a Set of positions; clicking a key calls onToggle(pos).
+function renderKeyPositionPicker(container, selected, onToggle) {
+  container.innerHTML = '';
+  container.classList.add('board', 'mini-board');
+  const scale = 0.34;
+  const { minX, minY, maxX, maxY } = computeBoardMetrics();
+  container.style.width = ((maxX - minX) * scale + 48) + 'px';
+  container.style.height = ((maxY - minY) * scale + 48) + 'px';
+  appendTrackballVisual(container, scale, minX, minY);
+  const referenceTokens = state.layers[0] ? state.layers[0].tokens : [];
+  LAYOUT_XS.filter(k => !k.trackball).forEach(k => {
+    const div = document.createElement('div');
+    div.className = 'key' + (selected.has(k.pos) ? ' selected' : '');
+    positionKeyDiv(div, k, scale, minX, minY);
+    const posSpan = document.createElement('span');
+    posSpan.className = 'pos';
+    posSpan.textContent = k.pos;
+    div.appendChild(posSpan);
+    const label = document.createElement('span');
+    label.textContent = shortLabel(referenceTokens[k.pos] || '&trans');
+    div.appendChild(label);
+    div.addEventListener('click', () => onToggle(k.pos));
+    container.appendChild(div);
+  });
+}
+
+function renderBoard() {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+  const scale = 0.52; // px per devicetree unit (100 = 1u)
+  const { minX, minY, maxX, maxY } = computeBoardMetrics();
+
+  board.style.width = ((maxX - minX) * scale + 48) + 'px';
+  board.style.height = ((maxY - minY) * scale + 48) + 'px';
+
+  appendTrackballVisual(board, scale, minX, minY);
+
+  const tokens = currentLayerTokens();
+  LAYOUT_XS.filter(k => !k.trackball).forEach(k => {
+    const div = document.createElement('div');
+    div.className = 'key';
+    positionKeyDiv(div, k, scale, minX, minY);
+    const posSpan = document.createElement('span');
+    posSpan.className = 'pos';
+    posSpan.textContent = k.pos;
+    div.appendChild(posSpan);
+    const label = document.createElement('span');
+    label.textContent = shortLabel(tokens[k.pos]);
+    div.appendChild(label);
+    div.addEventListener('click', () => {
+      openPicker(tokens[k.pos], (token) => {
+        currentLayerTokens()[k.pos] = token;
+        setDirty(true);
+        renderBoard();
+      });
+    });
+    board.appendChild(div);
+  });
+}
+
+/* ============================================================
+ * 6. Binding picker
+ * ========================================================== */
+const LETTERS = 'A B C D E F G H I J K L M N O P Q R S T U V W X Y Z'.split(' ');
+const NUMBERS = ['N1','N2','N3','N4','N5','N6','N7','N8','N9','N0'];
+const SYMBOLS = ['MINUS','EQUAL','SLASH','COMMA','DOT','SEMI','UNDERSCORE','PLUS','ASTRK','EXCLAMATION','AT','HASH','DOLLAR','PERCENT','AMPS','COLON','LEFT_PARENTHESIS','RIGHT_PARENTHESIS','LEFT_BRACKET','RIGHT_BRACKET','LEFT_BRACE','RIGHT_BRACE','KP_MULTIPLY'];
+const FUNCTION_KEYS = Array.from({length:12}, (_, i) => 'F' + (i+1));
+const SPECIAL_KEYS = ['LCTRL','LGUI','LALT','LSHIFT','RCTRL','RGUI','RALT','RSHIFT','TAB','BACKSPACE','ENTER','SPACE','ESC','DELETE','PRINTSCREEN','LANGUAGE_2','LANG4'];
+const NAV_KEYS = ['UP_ARROW','DOWN','LEFT','RIGHT_ARROW','LEFT_ARROW','HOME','END'];
+const MEDIA_KEYS = ['C_VOLUME_UP','C_VOL_DN','C_AC_SCROLL_UP','C_AC_SCROLL_DOWN'];
+function macroTokens() { return state.macros.map(m => m.id); }
+
+// Generic binding picker: shows the current value and calls onSelect(token)
+// with the chosen devicetree token string. Used for layer keys, combo
+// bindings, and macro steps alike.
+function openPicker(current, onSelect) {
+  state.onPickerSelect = onSelect;
+  const backdrop = document.getElementById('picker-backdrop');
+  const picker = document.getElementById('picker');
+
+  const kpGrid = (list) => `<div class="grid">${list.map(k => `<button data-token="&kp ${k}">${k.replace(/_/g,' ')}</button>`).join('')}</div>`;
+
+  picker.innerHTML = `
+    <h3>割り当てを選択(現在: <code>${current}</code>)</h3>
+
+    <div class="cat"><h4>文字</h4>${kpGrid(LETTERS)}</div>
+    <div class="cat"><h4>数字</h4>${kpGrid(NUMBERS)}</div>
+    <div class="cat"><h4>記号</h4>${kpGrid(SYMBOLS)}</div>
+    <div class="cat"><h4>ファンクション</h4>${kpGrid(FUNCTION_KEYS)}</div>
+    <div class="cat"><h4>修飾 / 特殊</h4>${kpGrid(SPECIAL_KEYS)}</div>
+    <div class="cat"><h4>矢印 / ナビゲーション</h4>${kpGrid(NAV_KEYS)}</div>
+    <div class="cat"><h4>メディア / スクロール</h4>${kpGrid(MEDIA_KEYS)}</div>
+
+    <div class="cat">
+      <h4>Bluetooth</h4>
+      <div class="grid">
+        ${[0,1,2,3,4].map(n => `<button data-token="&bt BT_SEL ${n}">選択${n}</button>`).join('')}
+        <button data-token="&bt BT_CLR">この端末を削除</button>
+        <button data-token="&bt BT_CLR_ALL">全削除</button>
+      </div>
+    </div>
+
+    <div class="cat">
+      <h4>マウスボタン</h4>
+      <div class="grid">${[1,2,3,4,5].map(n => `<button data-token="&mkp MB${n}">MB${n}</button>`).join('')}</div>
+    </div>
+
+    <div class="cat">
+      <h4>マクロ</h4>
+      <div class="grid">${macroTokens().map(m => `<button data-token="&${m}">${m}</button>`).join('') || '<span style="font-size:12px;color:var(--muted)">(マクロタブでまだ何も定義されていません)</span>'}</div>
+    </div>
+
+    <div class="cat">
+      <h4>透過 / 無効</h4>
+      <div class="grid">
+        <button data-token="&trans">&trans (透過)</button>
+        <button data-token="&none">&none (無効)</button>
+      </div>
+    </div>
+
+    <div class="cat">
+      <h4>レイヤー操作</h4>
+      <div class="row">
+        <span>レイヤー番号:</span>
+        <input type="number" id="layer-num" min="0" max="9" value="1">
+        <button id="btn-mo">&mo (押している間)</button>
+        <button id="btn-to">&to (切替)</button>
+        <button id="btn-sk">&sk (ワンショット)</button>
+        <button id="btn-sl">&sl (ワンショットレイヤー)</button>
+      </div>
+      <div class="row">
+        <span>&lt (長押しでレイヤー / タップでキー):</span>
+        <input type="text" id="lt-key" placeholder="例: H">
+        <button id="btn-lt">&lt を設定</button>
+      </div>
+    </div>
+
+    <div class="cat">
+      <h4>直接入力(上記にないビヘイビア用)</h4>
+      <div class="row">
+        <input type="text" class="wide" id="raw-input" placeholder="例: &kp GRAVE や &lt 3 X">
+        <button id="btn-raw">設定</button>
+      </div>
+    </div>
+
+    <div class="close-row">
+      <button id="btn-picker-close">閉じる</button>
+    </div>
+  `;
+
+  picker.querySelectorAll('button[data-token]').forEach(b => {
+    b.addEventListener('click', () => applyPickerToken(b.dataset.token));
+  });
+  picker.querySelector('#btn-mo').addEventListener('click', () => applyPickerToken(`&mo ${picker.querySelector('#layer-num').value}`));
+  picker.querySelector('#btn-to').addEventListener('click', () => applyPickerToken(`&to ${picker.querySelector('#layer-num').value}`));
+  picker.querySelector('#btn-sk').addEventListener('click', () => applyPickerToken(`&sk ${picker.querySelector('#layer-num').value}`));
+  picker.querySelector('#btn-sl').addEventListener('click', () => applyPickerToken(`&sl ${picker.querySelector('#layer-num').value}`));
+  picker.querySelector('#btn-lt').addEventListener('click', () => {
+    const layerNum = picker.querySelector('#layer-num').value;
+    const key = picker.querySelector('#lt-key').value.trim();
+    if (!key) { alert('タップ時のキーを入力してください'); return; }
+    applyPickerToken(`&lt ${layerNum} ${key}`);
+  });
+  picker.querySelector('#btn-raw').addEventListener('click', () => {
+    const raw = picker.querySelector('#raw-input').value.trim();
+    if (!raw.startsWith('&')) { alert('& から始まるビヘイビアを入力してください'); return; }
+    applyPickerToken(raw);
+  });
+  picker.querySelector('#btn-picker-close').addEventListener('click', closePicker);
+
+  backdrop.classList.add('open');
+}
+
+function applyPickerToken(token) {
+  const cb = state.onPickerSelect;
+  closePicker();
+  if (cb) cb(token);
+}
+
+function closePicker() {
+  document.getElementById('picker-backdrop').classList.remove('open');
+  state.onPickerSelect = null;
+}
+
+document.getElementById('picker-backdrop').addEventListener('click', (e) => {
+  if (e.target.id === 'picker-backdrop') closePicker();
+});
+
+/* ============================================================
+ * 7. Wiring
+ * ========================================================== */
+document.getElementById('btn-open').addEventListener('click', () => openFolder().catch(e => {
+  if (e.name !== 'AbortError') { console.error(e); alert('フォルダを開けませんでした: ' + e.message); }
+}));
+document.getElementById('btn-save').addEventListener('click', saveAll);
+
+document.querySelectorAll('nav.tabs .tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('nav.tabs .tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(tab.dataset.panel).classList.add('active');
+  });
+});
+
+renderLivePanel();
+</script>
+</body>
+</html>

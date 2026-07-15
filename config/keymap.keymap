@@ -133,5 +133,24 @@
 &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans        &trans          &trans        &trans        &trans        &trans
             >;
         };
+
+        // Reserved placeholder layers so ZMK Studio's live "add layer" has spare
+        // capacity to fill in without a firmware rebuild (see zmk.dev/docs/features/studio,
+        // "Including Extra Layers"). These are skipped in normal builds.
+        extra1 {
+            status = "reserved";
+        };
+
+        extra2 {
+            status = "reserved";
+        };
+
+        extra3 {
+            status = "reserved";
+        };
+
+        extra4 {
+            status = "reserved";
+        };
     };
 };
