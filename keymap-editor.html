@@ -3,17 +3,6 @@
 <head>
 <meta charset="utf-8">
 <title>torabo-tsuki XS キーマップ / トラックボール設定エディタ</title>
-<script type="importmap">
-{
-  "imports": {
-    "protobufjs/minimal": "./vendor/protobufjs/minimal.esm.js",
-    "async-mutex": "./vendor/async-mutex/index.mjs"
-  }
-}
-</script>
-<!-- Classic (non-module) script so it runs before the deferred module code below
-     and attaches the UMD build to globalThis.protobuf, which minimal.esm.js wraps. -->
-<script src="./vendor/protobufjs/protobuf.min.js"></script>
 <style>
   :root {
     color-scheme: light dark;
@@ -72,10 +61,10 @@
   button:disabled { opacity: 0.5; cursor: not-allowed; }
   #status { font-size: 12px; color: var(--muted); }
   #dirty-badge { font-size: 12px; color: var(--danger); display: none; }
-  nav.tabs { display: flex; gap: 6px; padding: 10px 16px 0; }
+  nav.tabs { display: flex; justify-content: center; gap: 6px; padding: 10px 16px 0; }
   nav.tabs button.tab { border-bottom: 3px solid transparent; border-radius: 6px 6px 0 0; }
   nav.tabs button.tab.active { border-bottom-color: var(--accent); background: var(--panel); font-weight: 600; }
-  main { padding: 16px; }
+  main { padding: 16px; max-width: 1700px; margin: 0 auto; }
   .panel { display: none; }
   .panel.active { display: block; }
   .notice {
@@ -89,8 +78,11 @@
     margin-bottom: 14px;
     line-height: 1.6;
   }
-  .layer-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .keymap-layout { display: flex; gap: 24px; align-items: flex-start; justify-content: center; }
+  .layer-tabs { display: flex; flex-direction: column; gap: 6px; flex: 0 0 170px; }
+  .layer-tabs button { text-align: left; }
   .layer-tabs button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .board-wrap { flex: 1 1 auto; display: flex; justify-content: center; overflow-x: auto; }
   #board, .board {
     position: relative;
     background: var(--panel);
@@ -111,27 +103,24 @@
     background: var(--key-bg);
     border: 1px solid var(--key-border);
     border-radius: 8px;
-    font-size: 11px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+    font-size: 15px;
     line-height: 1.25;
     padding: 2px;
     cursor: pointer;
     word-break: break-word;
     user-select: none;
+    transition: box-shadow .1s, border-color .1s;
   }
-  .key:hover { border-color: var(--accent); }
-  .key.selected { background: var(--key-active-bg); border-color: var(--accent); }
-  .key .pos { position: absolute; top: 2px; left: 4px; font-size: 8px; color: var(--muted); }
+  .key:hover { border-color: var(--accent); box-shadow: 0 1px 4px rgba(0,0,0,0.12); }
+  .key.selected { background: var(--key-active-bg); border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+  .key .pos { position: absolute; top: 3px; left: 5px; font-size: 10px; color: var(--muted); }
   .trackball {
     position: absolute;
     border-radius: 50%;
-    background: radial-gradient(circle at 32% 28%, #f2f4f8 0%, #b7bdc9 35%, #7d838f 70%, #565b64 100%);
-    box-shadow: inset -6px -8px 14px rgba(0,0,0,0.35), inset 4px 6px 10px rgba(255,255,255,0.35), 0 1px 3px rgba(0,0,0,0.4);
+    border: 1.5px solid var(--key-border);
+    background: transparent;
     pointer-events: none;
-  }
-  @media (prefers-color-scheme: dark) {
-    .trackball {
-      background: radial-gradient(circle at 32% 28%, #6b7280 0%, #454b54 35%, #2b2f36 70%, #16181c 100%);
-    }
   }
   section.ref { margin-top: 18px; }
   section.ref h2 { font-size: 13px; margin: 0 0 6px; }
@@ -145,37 +134,70 @@
     white-space: pre-wrap;
   }
 
-  /* picker */
-  #picker-backdrop {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.35);
-    display: none; align-items: center; justify-content: center; z-index: 50;
-  }
-  #picker-backdrop.open { display: flex; }
-  #picker {
-    width: min(720px, 92vw);
-    max-height: 82vh;
-    overflow: auto;
+  /* picker: a persistent docked panel (Remap-style), not a modal.
+     Stays visible below the board/list content on every tab and updates
+     in place with whatever was last clicked. */
+  #picker-dock {
+    position: sticky;
+    bottom: 0;
+    margin-top: 18px;
     background: var(--panel);
     border: 1px solid var(--border);
     border-radius: 10px;
-    padding: 16px 18px;
+    box-shadow: 0 -4px 18px rgba(0,0,0,0.08);
+    overflow: hidden;
   }
-  #picker h3 { margin: 0 0 10px; font-size: 14px; }
-  #picker .cat { margin-bottom: 12px; }
-  #picker .cat h4 { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 6px; }
-  #picker .grid { display: flex; flex-wrap: wrap; gap: 6px; }
-  #picker .grid button { font-size: 12px; padding: 4px 10px; }
-  #picker .row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
-  #picker input[type=text], #picker input[type=number] {
+  #picker-dock .picker-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+  }
+  #picker-dock .picker-header .current {
+    font-size: 13px; color: var(--muted);
+  }
+  #picker-dock .picker-header .current code {
+    color: var(--text); font-weight: 600;
+  }
+  #picker-cats {
+    display: flex; gap: 4px; padding: 10px 16px 0; flex-wrap: wrap;
+  }
+  #picker-cats button {
+    font-size: 12px; padding: 6px 14px; border-radius: 6px 6px 0 0;
+    border-bottom: 2px solid transparent; background: transparent; border-color: transparent;
+  }
+  #picker-cats button.active {
+    border-bottom-color: var(--accent); background: var(--bg); font-weight: 600; color: var(--accent);
+  }
+  #picker-body { padding: 14px 16px 16px; max-height: 260px; overflow: auto; }
+  #picker-body .grid { display: flex; flex-wrap: wrap; gap: 6px; }
+  #picker-body .grid button { font-size: 12px; padding: 6px 12px; min-width: 44px; }
+  #picker-body .row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  #picker-body input[type=text], #picker-body input[type=number] {
     font: inherit; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border);
     background: var(--bg); color: var(--text); width: 80px;
   }
-  #picker input[type=text].wide { width: 220px; }
-  #picker .close-row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+  #picker-body input[type=text].wide { width: 220px; }
+  #picker-dock.empty #picker-cats, #picker-dock.empty #picker-body { display: none; }
+  #picker-dock.empty .picker-header .current { font-style: italic; }
+  #picker-dock.empty .picker-header #btn-picker-close { display: none; }
+
+  /* small modal, still used for the combo key-position picker only
+     (a spatial multi-select, not a Remap-style keycode grid) */
+  #position-picker-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.35);
+    display: none; align-items: center; justify-content: center; z-index: 50;
+  }
+  #position-picker-backdrop.open { display: flex; }
+  #position-picker {
+    width: min(720px, 92vw); max-height: 82vh; overflow: auto;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px;
+  }
+  #position-picker h3 { margin: 0 0 10px; font-size: 14px; }
+  #position-picker .close-row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
 
   /* trackball tab */
   .tb-card {
     background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     padding: 14px 18px; margin-bottom: 14px;
   }
   .tb-card h3 { margin: 0 0 4px; font-size: 14px; }
@@ -189,6 +211,7 @@
   /* combo / macro cards */
   .item-card {
     background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     padding: 12px 16px; margin-bottom: 12px;
   }
   .item-card .row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
@@ -224,16 +247,10 @@
   <button class="tab" data-panel="panel-combo">コンボ</button>
   <button class="tab" data-panel="panel-macro">マクロ</button>
   <button class="tab" data-panel="panel-trackball">トラックボール / スクロール速度</button>
-  <button class="tab" data-panel="panel-live">ライブ接続(実験的)</button>
+  <button class="tab" data-panel="panel-gesture">ジェスチャー</button>
 </nav>
 
 <main>
-  <div class="notice" style="border-left-color: var(--danger);">
-    <strong>起動方法の注意:</strong> このファイルを直接ダブルクリックして開く(<code>file://</code>)と、
-    ブラウザのセキュリティ制限でボタンが一切反応しません。必ず同じフォルダにある
-    <code>start-keymap-editor.bat</code> をダブルクリックして起動してください
-    (ローカルサーバーが立ち上がり、自動的にブラウザで <code>http://localhost:8743/</code> が開きます)。
-  </div>
   <div class="notice">
     このツールはファイル(<code>config/keymap.keymap</code> と関連する overlay ファイル)を書き換えるだけです。
     実機に反映するには、保存後にこのフォルダの変更をコミット/プッシュ(または <code>west build</code>)して
@@ -243,26 +260,33 @@
   </div>
 
   <section id="panel-keymap" class="panel active">
-    <div id="layer-tabs" class="layer-tabs"></div>
-    <div id="board"></div>
+    <div class="keymap-layout">
+      <div id="layer-tabs" class="layer-tabs"></div>
+      <div class="board-wrap"><div id="board"></div></div>
+    </div>
   </section>
 
   <div id="panel-combo" class="panel"></div>
   <div id="panel-macro" class="panel"></div>
   <div id="panel-trackball" class="panel"></div>
-  <div id="panel-live" class="panel"></div>
+  <div id="panel-gesture" class="panel"></div>
+
+  <div id="picker-dock" class="empty">
+    <div class="picker-header">
+      <span class="current" id="picker-current">キーやコンボ、マクロのステップをクリックすると、ここでキーコードを選べます</span>
+      <button id="btn-picker-close" style="margin-left:auto;">閉じる</button>
+    </div>
+    <div id="picker-cats"></div>
+    <div id="picker-body"></div>
+  </div>
 </main>
 
-<div id="picker-backdrop">
-  <div id="picker"></div>
+<div id="position-picker-backdrop">
+  <div id="position-picker"></div>
 </div>
 
-<script type="module">
+<script>
 'use strict';
-
-import { create_rpc_connection, call_rpc, NoResponseError, MetaError } from './vendor/zmk-studio-ts-client/index.js';
-import { connect as connectSerial } from './vendor/zmk-studio-ts-client/transport/serial.js';
-import { connect as connectGatt } from './vendor/zmk-studio-ts-client/transport/gatt.js';
 
 /* ============================================================
  * 1. Physical layout data for the real 44-key "XS" (= firmware's
@@ -320,7 +344,9 @@ const LAYOUT_XS = [
 ];
 const KEY_W = 100, KEY_H = 100; // all keys are 1u on this board
 // positions 61/62 have no physical key on the real board — the trackball module
-// sits there instead. Rendered as a ball spanning both cells' footprint.
+// sits there instead. Rendered as a small ring at the midpoint of both cells,
+// sized to the real trackball's ~19mm diameter (≈ 1 key unit = 100 devicetree units)
+// so it doesn't overlap neighboring keys.
 const TRACKBALL_VISUAL = (() => {
   const cells = LAYOUT_XS.filter(k => k.trackball);
   const minX = Math.min(...cells.map(k => k.x));
@@ -328,7 +354,7 @@ const TRACKBALL_VISUAL = (() => {
   const minY = Math.min(...cells.map(k => k.y));
   const maxY = Math.max(...cells.map(k => k.y + KEY_H));
   const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
-  const r = Math.max(maxX - minX, maxY - minY) / 2 + 20;
+  const r = KEY_W / 2; // ~1 key unit diameter, matching the real 19mm ball
   return { cx, cy, r };
 })();
 
@@ -585,127 +611,98 @@ function writeInvertFlags(fullText, blockRange, processorName, flags) {
 }
 
 /* ============================================================
- * 2b. ZMK Studio live-connection binding translation
+ * 2c. Gesture support (trackball / trackpad directional keybinds)
  *
- * Converts between our devicetree-style token strings (e.g. "&kp Q",
- * "&mo 1") and the structured {behaviorId, param1, param2} BehaviorBinding
- * that ZMK Studio's RPC protocol uses. HID usage IDs and modifier/command
- * constants below are taken directly from ZMK's own headers:
- *   app/include/dt-bindings/zmk/hid_usage.h  (base HID usage IDs)
- *   app/include/dt-bindings/zmk/modifiers.h  (LS() = (mods << 24) | keycode)
- *   app/include/dt-bindings/zmk/bt.h         (BT_* command IDs)
- *   app/include/dt-bindings/zmk/pointing.h   (MB1..MB5 bit flags)
- * Only the "core" ZMK behaviors below are supported live; combos, macros,
- * and trackball/scroll settings are not exposed by the Studio protocol at
- * all (confirmed against zmk.dev/docs/features/studio) and remain file-only.
+ * Uses the experimental te9no/zmk-input-processor-keybind module to turn
+ * a burst of pointer movement into a discrete directional keypress, active
+ * only while a shared "Gesture" layer is held (via the same layers=<N>
+ * child-node mechanism this keyboard already uses for its scroll layer).
+ * The whole config block is auto-generated between marker comments so it
+ * can be safely regenerated on every save without disturbing hand-written
+ * content elsewhere in the file.
  * ========================================================== */
-const HID_KEYCODES = {
-  A: 0x04, B: 0x05, C: 0x06, D: 0x07, E: 0x08, F: 0x09, G: 0x0A, H: 0x0B, I: 0x0C, J: 0x0D,
-  K: 0x0E, L: 0x0F, M: 0x10, N: 0x11, O: 0x12, P: 0x13, Q: 0x14, R: 0x15, S: 0x16, T: 0x17,
-  U: 0x18, V: 0x19, W: 0x1A, X: 0x1B, Y: 0x1C, Z: 0x1D,
-  N1: 0x1E, N2: 0x1F, N3: 0x20, N4: 0x21, N5: 0x22, N6: 0x23, N7: 0x24, N8: 0x25, N9: 0x26, N0: 0x27,
-  ENTER: 0x28, ESC: 0x29, BACKSPACE: 0x2A, TAB: 0x2B, SPACE: 0x2C,
-  MINUS: 0x2D, EQUAL: 0x2E, LEFT_BRACKET: 0x2F, RIGHT_BRACKET: 0x30, BACKSLASH: 0x31,
-  SEMI: 0x33, SQT: 0x34, GRAVE: 0x35, COMMA: 0x36, DOT: 0x37, SLASH: 0x38,
-  F1: 0x3A, F2: 0x3B, F3: 0x3C, F4: 0x3D, F5: 0x3E, F6: 0x3F, F7: 0x40, F8: 0x41, F9: 0x42, F10: 0x43, F11: 0x44, F12: 0x45,
-  PRINTSCREEN: 0x46,
-  HOME: 0x4A, PAGE_UP: 0x4B, DELETE: 0x4C, END: 0x4D, PAGE_DOWN: 0x4E,
-  RIGHT_ARROW: 0x4F, RIGHT: 0x4F, LEFT_ARROW: 0x50, LEFT: 0x50, DOWN: 0x51, DOWN_ARROW: 0x51, UP: 0x52, UP_ARROW: 0x52,
-  KP_MULTIPLY: 0x55,
-  LCTRL: 0xE0, LSHIFT: 0xE1, LALT: 0xE2, LGUI: 0xE3, RCTRL: 0xE4, RSHIFT: 0xE5, RALT: 0xE6, RGUI: 0xE7,
-};
-const MOD_LSFT = 0x02;
-const SHIFTED_KEYCODES = {
-  EXCLAMATION: HID_KEYCODES.N1, AT: HID_KEYCODES.N2, HASH: HID_KEYCODES.N3, DOLLAR: HID_KEYCODES.N4,
-  PERCENT: HID_KEYCODES.N5, AMPS: HID_KEYCODES.N7, ASTRK: HID_KEYCODES.N8,
-  LEFT_PARENTHESIS: HID_KEYCODES.N9, RIGHT_PARENTHESIS: HID_KEYCODES.N0,
-  UNDERSCORE: HID_KEYCODES.MINUS, PLUS: HID_KEYCODES.EQUAL,
-  LEFT_BRACE: HID_KEYCODES.LEFT_BRACKET, RIGHT_BRACE: HID_KEYCODES.RIGHT_BRACKET,
-  COLON: HID_KEYCODES.SEMI, PIPE: HID_KEYCODES.BACKSLASH, TILDE: HID_KEYCODES.GRAVE,
-};
-const BT_CMD = { BT_SEL: 3, BT_CLR: 0, BT_CLR_ALL: 4, BT_NXT: 1, BT_PRV: 2, BT_DISC: 5 };
-const MOUSE_BUTTONS = { MB1: 1, MB2: 2, MB3: 4, MB4: 8, MB5: 16 };
-const CORE_BEHAVIOR_DISPLAY_NAMES = {
-  'Key Press': 'kp', 'Transparent': 'trans', 'None': 'none', 'Momentary Layer': 'mo',
-  'Layer-Tap': 'lt', 'To Layer': 'to', 'Sticky Key': 'sk', 'Sticky Layer': 'sl',
-  'Toggle Layer': 'tog', 'Bluetooth': 'bt', 'Mouse Key Press': 'mkp',
-};
+const GESTURE_INCLUDE_LINE = '#include <input/processors/zmk-input-processor-keybind.dtsi>';
+const GESTURE_MARKER_START = '/* === keymap-editor: gesture config (auto-generated, safe to regenerate) === */';
+const GESTURE_MARKER_END = '/* === keymap-editor: end gesture config === */';
+const GESTURE_LAYER_NAME = 'Gesture';
+const GESTURE_DEFAULT_TOKENS = ['&kp RIGHT', '&kp LEFT', '&kp UP', '&kp DOWN'];
 
-function keycodeNameToHidParam(name) {
-  if (name in HID_KEYCODES) return HID_KEYCODES[name];
-  if (name in SHIFTED_KEYCODES) return (MOD_LSFT << 24) | SHIFTED_KEYCODES[name];
-  return null;
-}
-
-function hidParamToKeycodeName(param) {
-  const mods = (param >>> 24) & 0xFF;
-  const base = param & 0x00FFFFFF;
-  const table = mods === MOD_LSFT ? SHIFTED_KEYCODES : (mods === 0 ? HID_KEYCODES : null);
-  if (!table) return null;
-  const found = Object.entries(table).find(([, v]) => v === base);
-  return found ? found[0] : null;
-}
-
-// token (e.g. "&kp Q") -> {behaviorId, param1, param2}, or null if this
-// behavior/keycode combination isn't supported for live editing.
-function tokenToBehaviorBinding(token, behaviorIdByKind) {
-  const m = token.match(/^&(\S+)\s*(.*)$/);
-  if (!m) return null;
-  const [, behavior, rest] = m;
-  const args = rest.trim().split(/\s+/).filter(Boolean);
-  const idFor = (kind) => behaviorIdByKind[kind];
-  switch (behavior) {
-    case 'kp': {
-      const id = idFor('kp'); const param1 = keycodeNameToHidParam(args[0]);
-      return (id != null && param1 != null) ? { behaviorId: id, param1, param2: 0 } : null;
-    }
-    case 'trans': return idFor('trans') != null ? { behaviorId: idFor('trans'), param1: 0, param2: 0 } : null;
-    case 'none': return idFor('none') != null ? { behaviorId: idFor('none'), param1: 0, param2: 0 } : null;
-    case 'mo': return idFor('mo') != null ? { behaviorId: idFor('mo'), param1: Number(args[0]), param2: 0 } : null;
-    case 'lt': {
-      const id = idFor('lt'); const param2 = keycodeNameToHidParam(args[1]);
-      return (id != null && param2 != null) ? { behaviorId: id, param1: Number(args[0]), param2 } : null;
-    }
-    case 'to': return idFor('to') != null ? { behaviorId: idFor('to'), param1: Number(args[0]), param2: 0 } : null;
-    case 'sk': return idFor('sk') != null ? { behaviorId: idFor('sk'), param1: Number(args[0]), param2: 0 } : null;
-    case 'sl': return idFor('sl') != null ? { behaviorId: idFor('sl'), param1: Number(args[0]), param2: 0 } : null;
-    case 'tog': return idFor('tog') != null ? { behaviorId: idFor('tog'), param1: Number(args[0]), param2: 0 } : null;
-    case 'bt': {
-      const id = idFor('bt'); const cmd = BT_CMD[args[0]];
-      if (id == null || cmd == null) return null;
-      return { behaviorId: id, param1: cmd, param2: args[1] != null ? Number(args[1]) : 0 };
-    }
-    case 'mkp': {
-      const id = idFor('mkp'); const btn = MOUSE_BUTTONS[args[0]];
-      return (id != null && btn != null) ? { behaviorId: id, param1: btn, param2: 0 } : null;
-    }
-    default: return null; // macros and anything else: not supported live
+function ensureIncludeLine(text, includeLine) {
+  if (text.includes(includeLine)) return text;
+  const includeRe = /^#include.*$/gm;
+  let lastMatch = null, m;
+  while ((m = includeRe.exec(text)) && m.index < 2000) lastMatch = m;
+  if (lastMatch) {
+    const insertPos = lastMatch.index + lastMatch[0].length;
+    return text.slice(0, insertPos) + '\n' + includeLine + text.slice(insertPos);
   }
+  return includeLine + '\n' + text;
 }
 
-// {behaviorId, param1, param2} -> token string, using the device-reported
-// behaviorId -> kind map built after connecting.
-function behaviorBindingToToken(binding, kindByBehaviorId) {
-  const kind = kindByBehaviorId[binding.behaviorId];
-  if (!kind) return `&unknown(id=${binding.behaviorId}) ${binding.param1} ${binding.param2}`;
-  switch (kind) {
-    case 'kp': { const name = hidParamToKeycodeName(binding.param1); return `&kp ${name || '0x' + binding.param1.toString(16)}`; }
-    case 'trans': return '&trans';
-    case 'none': return '&none';
-    case 'mo': return `&mo ${binding.param1}`;
-    case 'lt': { const name = hidParamToKeycodeName(binding.param2); return `&lt ${binding.param1} ${name || binding.param2}`; }
-    case 'to': return `&to ${binding.param1}`;
-    case 'sk': return `&sk ${binding.param1}`;
-    case 'sl': return `&sl ${binding.param1}`;
-    case 'tog': return `&tog ${binding.param1}`;
-    case 'bt': {
-      const cmdName = Object.entries(BT_CMD).find(([, v]) => v === binding.param1);
-      const needsIndex = cmdName && (cmdName[0] === 'BT_SEL' || cmdName[0] === 'BT_DISC');
-      return cmdName ? `&bt ${cmdName[0]}${needsIndex ? ' ' + binding.param2 : ''}` : `&bt ${binding.param1} ${binding.param2}`;
-    }
-    case 'mkp': { const name = Object.entries(MOUSE_BUTTONS).find(([, v]) => v === binding.param1); return `&mkp ${name ? name[0] : binding.param1}`; }
-    default: return `&${kind} ${binding.param1} ${binding.param2}`;
+function extractMarkedBlock(text, startMarker, endMarker) {
+  const s = text.indexOf(startMarker);
+  if (s === -1) return null;
+  const eIdx = text.indexOf(endMarker, s);
+  if (eIdx === -1) throw new Error('gesture block missing end marker');
+  let end = eIdx + endMarker.length;
+  if (text[end] === '\n') end += 1;
+  return { start: s, end };
+}
+
+function parseGestureBlock(text) {
+  const block = extractMarkedBlock(text, GESTURE_MARKER_START, GESTURE_MARKER_END);
+  if (!block) return { tokens: GESTURE_DEFAULT_TOKENS.slice() };
+  const blockText = text.slice(block.start, block.end);
+  const bindingsM = blockText.match(/bindings\s*=\s*([^;]*);/);
+  const tokens = bindingsM ? Array.from(bindingsM[1].matchAll(/<([^<>]*)>/g)).map(mm => mm[1].trim()) : null;
+  return { tokens: (tokens && tokens.length === 4) ? tokens : GESTURE_DEFAULT_TOKENS.slice() };
+}
+
+function buildGestureBlockText(nodeLabel, layerNum, tokens) {
+  const bindings = tokens.map(t => `<${t}>`).join(', ');
+  return `${GESTURE_MARKER_START}
+/ {
+    ${nodeLabel}: ${nodeLabel} {
+        compatible = "zmk,input-processor-keybind";
+        #input-processor-cells = <0>;
+        mode = <1>;
+        bindings = ${bindings};
+        tick = <40>;
+        tap-ms = <10>;
+    };
+};
+
+&pointing_listener {
+    gesture_layer {
+        layers = <${layerNum}>;
+        input-processors = <&${nodeLabel}>;
+    };
+};
+${GESTURE_MARKER_END}
+`;
+}
+
+function writeGestureBlock(text, nodeLabel, layerNum, tokens) {
+  let out = ensureIncludeLine(text, GESTURE_INCLUDE_LINE);
+  const newBlockText = buildGestureBlockText(nodeLabel, layerNum, tokens);
+  const block = extractMarkedBlock(out, GESTURE_MARKER_START, GESTURE_MARKER_END);
+  if (block) {
+    return out.slice(0, block.start) + newBlockText + out.slice(block.end);
   }
+  const sep = out.endsWith('\n') ? '\n' : '\n\n';
+  return out + sep + newBlockText;
+}
+
+function ensureWestModule(text, remoteName, urlBase, projectName, revision) {
+  let out = text;
+  const nl = out.includes('\r\n') ? '\r\n' : '\n';
+  if (!out.includes(`url-base: ${urlBase}`)) {
+    out = out.replace(/(remotes:\r?\n)/, `$1    - name: ${remoteName}${nl}      url-base: ${urlBase}${nl}`);
+  }
+  if (!out.includes(`name: ${projectName}`)) {
+    out = out.replace(/(projects:\r?\n)/, `$1    - name: ${projectName}${nl}      remote: ${remoteName}${nl}      revision: ${revision}${nl}`);
+  }
+  return out;
 }
 
 /* ============================================================
@@ -721,6 +718,7 @@ const state = {
   combosBlockRange: null,
   macros: [],               // [{id, label, tokens}]
   macrosBlockRange: null,
+  gesture: null,            // { trackball: {tokens}, trackpad: {tokens} }
   dirty: false,
   trackball: null,         // parsed settings, see loadTrackballSettings()
   onPickerSelect: null,    // callback(token) for the currently open picker
@@ -728,7 +726,9 @@ const state = {
 
 const PATHS = {
   keymap: ['config', 'keymap.keymap'],
+  westYml: ['config', 'west.yml'],
   rightOverlay: ['boards', 'shields', 'torabo_tsuki_lp', 'torabo_tsuki_lp_right.overlay'],
+  leftOverlay: ['boards', 'shields', 'torabo_tsuki_lp', 'torabo_tsuki_lp_left.overlay'],
   splitListenerOverlay: ['snippets', 'input-split-listener', 'input-split-listener.overlay'],
 };
 
@@ -748,7 +748,10 @@ async function openFolder() {
   const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
   state.dirHandle = dirHandle;
 
-  const keyToPath = { keymap: PATHS.keymap, rightOverlay: PATHS.rightOverlay, splitListenerOverlay: PATHS.splitListenerOverlay };
+  const keyToPath = {
+    keymap: PATHS.keymap, westYml: PATHS.westYml, rightOverlay: PATHS.rightOverlay,
+    leftOverlay: PATHS.leftOverlay, splitListenerOverlay: PATHS.splitListenerOverlay,
+  };
   for (const [key, parts] of Object.entries(keyToPath)) {
     const fh = await getFileHandleByPath(dirHandle, parts);
     state.fileHandles[key] = fh;
@@ -767,6 +770,11 @@ async function openFolder() {
   state.macros = macroResult.macros;
   state.macrosBlockRange = macroResult.blockRange;
 
+  state.gesture = {
+    trackball: parseGestureBlock(state.originalTexts.rightOverlay),
+    trackpad: parseGestureBlock(state.originalTexts.leftOverlay),
+  };
+
   loadTrackballSettings();
 
   document.getElementById('status').textContent = 'フォルダ: ' + dirHandle.name;
@@ -777,6 +785,18 @@ async function openFolder() {
   renderTrackballPanel();
   renderComboPanel();
   renderMacroPanel();
+  renderGesturePanel();
+}
+
+// Finds (or creates) the shared "Gesture" layer in state.layers and returns
+// its eventual compiled layer index (declaration order among real layers;
+// `status = "reserved"` placeholder layers are excluded from normal builds
+// and don't consume an index).
+function ensureGestureLayer() {
+  const idx = state.layers.findIndex(l => l.name === GESTURE_LAYER_NAME);
+  if (idx !== -1) return idx;
+  state.layers.push({ name: GESTURE_LAYER_NAME, tokens: new Array(66).fill('&trans') });
+  return state.layers.length - 1;
 }
 
 function setDirty(v) {
@@ -793,6 +813,10 @@ async function ensureWritePermission(fileHandle) {
 async function saveAll() {
   if (!state.dirHandle) return;
   try {
+    // 0. Reserve the shared "Gesture" layer's index before serializing the
+    // keymap, so the overlay writes below reference the correct layer number.
+    const gestureLayerIndex = ensureGestureLayer();
+
     // 1. keymap.keymap: layers (rename/rebind/add), then combos, then macros —
     // each pass re-locates its own block by content, so order is safe.
     let newKeymapText = serializeKeymapFull(state.originalTexts.keymap, state.layers);
@@ -806,7 +830,15 @@ async function saveAll() {
     }
     await writeFile('keymap', newKeymapText);
 
-    // 2. right.overlay (main pointer speed + scroll-layer scroll speed + invert flags)
+    // 1b. west.yml: ensure the gesture module dependency is present.
+    let westText = ensureWestModule(
+      state.originalTexts.westYml, 'te9no', 'https://github.com/te9no',
+      'zmk-input-processor-keybind', 'main'
+    );
+    state.originalTexts.westYml = westText;
+    await writeFile('westYml', westText);
+
+    // 2. right.overlay (main pointer speed + scroll-layer scroll speed + invert flags + trackball gesture)
     let rightText = state.originalTexts.rightOverlay;
     const tb = state.trackball;
     const outerBlock = extractBlock(rightText, '&pointing_listener');
@@ -824,8 +856,14 @@ async function saveAll() {
         rightText = writeScalerFraction(rightText, scrollBlockAbs, 'zip_scroll_scaler', tb.right.scroll.num, tb.right.scroll.den);
       }
     }
+    rightText = writeGestureBlock(rightText, 'zip_gesture_trackball', gestureLayerIndex, state.gesture.trackball.tokens);
     state.originalTexts.rightOverlay = rightText;
     await writeFile('rightOverlay', rightText);
+
+    // 2b. left.overlay (trackpad gesture)
+    let leftText = writeGestureBlock(state.originalTexts.leftOverlay, 'zip_gesture_trackpad', gestureLayerIndex, state.gesture.trackpad.tokens);
+    state.originalTexts.leftOverlay = leftText;
+    await writeFile('leftOverlay', leftText);
 
     // 3. input-split-listener.overlay (left / double-ball side speed + invert flags)
     let splitText = state.originalTexts.splitListenerOverlay;
@@ -856,226 +894,6 @@ async function writeFile(key, text) {
   const writable = await fh.createWritable();
   await writable.write(text);
   await writable.close();
-}
-
-/* ============================================================
- * 3b. Live connection (ZMK Studio RPC over USB / BLE)
- *
- * EXPERIMENTAL: built against the documented protocol
- * (zmk.dev/docs/development/studio-rpc-protocol) and the official
- * @zmkfirmware/zmk-studio-ts-client, but never tested against a real
- * device in this environment. Only per-key binding edits, layer rename,
- * and adding a layer (into a pre-provisioned `status = "reserved"` slot)
- * are supported live -- combos, macros, and trackball/scroll speed are
- * not exposed by the Studio protocol at all and stay file-only.
- * ========================================================== */
-const live = {
-  connected: false,
-  transportLabel: '',
-  conn: null,
-  behaviorIdByKind: {},
-  kindByBehaviorId: {},
-  keymap: null,      // { layers: [{id, name, bindings}], availableLayers, maxLayerNameLength }
-  currentLayerId: null,
-  dirty: false,
-};
-
-async function liveConnect(transportKind) {
-  try {
-    const transport = transportKind === 'usb' ? await connectSerial() : await connectGatt();
-    live.conn = create_rpc_connection(transport);
-    live.transportLabel = transport.label + (transportKind === 'ble' ? ' (BLE)' : ' (USB)');
-    live.connected = true;
-
-    const listResp = await call_rpc(live.conn, { behaviors: { listAllBehaviors: true } });
-    const ids = listResp.behaviors.listAllBehaviors.behaviors;
-    live.behaviorIdByKind = {};
-    live.kindByBehaviorId = {};
-    for (const id of ids) {
-      const detailsResp = await call_rpc(live.conn, { behaviors: { getBehaviorDetails: { behaviorId: id } } });
-      const details = detailsResp.behaviors.getBehaviorDetails;
-      const kind = CORE_BEHAVIOR_DISPLAY_NAMES[details.displayName];
-      if (kind) { live.behaviorIdByKind[kind] = id; live.kindByBehaviorId[id] = kind; }
-    }
-
-    const keymapResp = await call_rpc(live.conn, { keymap: { getKeymap: true } });
-    live.keymap = keymapResp.keymap.getKeymap;
-    live.currentLayerId = live.keymap.layers[0].id;
-    live.dirty = false;
-    renderLivePanel();
-  } catch (e) {
-    console.error(e);
-    alert('接続に失敗しました: ' + (e && e.message ? e.message : e) + '\n(USBケーブルの抜き差しや、他のアプリがポートを使用中でないかご確認ください)');
-  }
-}
-
-function liveDisconnect() {
-  live.connected = false;
-  live.conn = null;
-  live.keymap = null;
-  live.behaviorIdByKind = {};
-  live.kindByBehaviorId = {};
-  renderLivePanel();
-}
-
-function liveCurrentLayer() {
-  return live.keymap.layers.find(l => l.id === live.currentLayerId);
-}
-
-async function liveSetBinding(pos, token) {
-  const binding = tokenToBehaviorBinding(token, live.behaviorIdByKind);
-  if (!binding) {
-    alert('このビヘイビア/キーはライブ接続では未対応です(このツールでは &kp, &trans, &none, &mo, &lt, &to, &sk, &sl, &tog, &bt, &mkp のみ対応)。\nファイル編集モードをお使いください。');
-    return;
-  }
-  try {
-    const layer = liveCurrentLayer();
-    const resp = await call_rpc(live.conn, { keymap: { setLayerBinding: { layerId: layer.id, keyPosition: pos, binding } } });
-    if (resp.keymap.setLayerBinding !== 0 /* SET_LAYER_BINDING_RESP_OK */) {
-      alert('デバイスが設定を拒否しました(コード: ' + resp.keymap.setLayerBinding + ')');
-      return;
-    }
-    layer.bindings[pos] = binding;
-    live.dirty = true;
-    renderLivePanel();
-  } catch (e) {
-    console.error(e);
-    alert('設定の送信に失敗しました: ' + (e && e.message ? e.message : e));
-  }
-}
-
-async function liveRenameLayer(layer, newName) {
-  try {
-    const resp = await call_rpc(live.conn, { keymap: { setLayerProps: { layerId: layer.id, name: newName } } });
-    if (resp.keymap.setLayerProps !== 0 /* SET_LAYER_PROPS_RESP_OK */) {
-      alert('名前の変更に失敗しました(コード: ' + resp.keymap.setLayerProps + ')');
-      return;
-    }
-    layer.name = newName;
-    live.dirty = true;
-    renderLivePanel();
-  } catch (e) {
-    console.error(e);
-    alert('名前の変更に失敗しました: ' + (e && e.message ? e.message : e));
-  }
-}
-
-async function liveAddLayer() {
-  try {
-    const resp = await call_rpc(live.conn, { keymap: { addLayer: {} } });
-    if (resp.keymap.addLayer.err !== undefined) {
-      alert('レイヤーを追加できませんでした。予備の枠(status = "reserved" のレイヤー)を使い切っている可能性があります。\nファイル編集モードで予備レイヤーを追加してビルド・書き込みし直してください。');
-      return;
-    }
-    const newLayer = resp.keymap.addLayer.ok.layer;
-    live.keymap.layers.splice(resp.keymap.addLayer.ok.index, 0, newLayer);
-    live.currentLayerId = newLayer.id;
-    live.dirty = true;
-    renderLivePanel();
-  } catch (e) {
-    console.error(e);
-    alert('レイヤーの追加に失敗しました: ' + (e && e.message ? e.message : e));
-  }
-}
-
-async function liveSave() {
-  try {
-    await call_rpc(live.conn, { keymap: { saveChanges: true } });
-    live.dirty = false;
-    renderLivePanel();
-    alert('キーボードに保存しました。');
-  } catch (e) {
-    console.error(e);
-    alert('保存に失敗しました: ' + (e && e.message ? e.message : e));
-  }
-}
-
-function renderLivePanel() {
-  const root = document.getElementById('panel-live');
-  if (!live.connected) {
-    root.innerHTML = `
-      <div class="notice">
-        実験的機能です。実機での動作確認はできていません。うまく動かない場合は、下の「ファイル編集モード」の
-        各タブ(キーマップ/コンボ/マクロ/トラックボール)で編集し、コミット/プッシュ→ビルド→書き込みをお使いください。<br>
-        ライブ接続で設定できるのは <code>&amp;kp</code> <code>&amp;trans</code> <code>&amp;none</code>
-        <code>&amp;mo</code> <code>&amp;lt</code> <code>&amp;to</code> <code>&amp;sk</code> <code>&amp;sl</code>
-        <code>&amp;tog</code> <code>&amp;bt</code> <code>&amp;mkp</code> のみです。マクロの割り当てや、
-        コンボ・トラックボール速度の変更はここでは反映できません。<br>
-        Bluetooth接続はブラウザの標準機能(Web Bluetooth)を使った実験的対応で、USB接続より不安定な場合があります。
-      </div>
-      <button id="btn-live-usb">USBで接続</button>
-      <button id="btn-live-ble">Bluetoothで接続(実験的)</button>
-    `;
-    root.querySelector('#btn-live-usb').addEventListener('click', () => liveConnect('usb'));
-    root.querySelector('#btn-live-ble').addEventListener('click', () => liveConnect('ble'));
-    return;
-  }
-
-  const layer = liveCurrentLayer();
-  root.innerHTML = `
-    <div class="notice">
-      接続中: ${live.transportLabel}${live.dirty ? '(未保存の変更があります)' : ''}
-      <button id="btn-live-disconnect" style="float:right;">切断</button>
-      <button id="btn-live-save" style="float:right;margin-right:8px;" ${live.dirty ? '' : 'disabled'}>キーボードに保存</button>
-    </div>
-    <div id="live-layer-tabs" class="layer-tabs"></div>
-    <div id="live-board"></div>
-  `;
-  root.querySelector('#btn-live-disconnect').addEventListener('click', liveDisconnect);
-  root.querySelector('#btn-live-save').addEventListener('click', liveSave);
-
-  const tabsRoot = root.querySelector('#live-layer-tabs');
-  live.keymap.layers.forEach(l => {
-    const b = document.createElement('button');
-    b.textContent = l.name;
-    b.className = l.id === live.currentLayerId ? 'active' : '';
-    b.title = 'ダブルクリックで名前を変更';
-    b.addEventListener('click', () => { live.currentLayerId = l.id; renderLivePanel(); });
-    b.addEventListener('dblclick', () => {
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.value = l.name;
-      b.replaceWith(input);
-      input.focus();
-      input.select();
-      input.addEventListener('blur', () => {
-        const v = input.value.trim();
-        if (v && v !== l.name) liveRenameLayer(l, v); else renderLivePanel();
-      });
-      input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); if (e.key === 'Escape') renderLivePanel(); });
-    });
-    tabsRoot.appendChild(b);
-  });
-  const addBtn = document.createElement('button');
-  addBtn.textContent = '+ レイヤーを追加(予備を使用)';
-  addBtn.addEventListener('click', liveAddLayer);
-  tabsRoot.appendChild(addBtn);
-
-  const board = root.querySelector('#live-board');
-  const scale = 0.52;
-  const { minX, minY, maxX, maxY } = computeBoardMetrics();
-  board.style.width = ((maxX - minX) * scale + 48) + 'px';
-  board.style.height = ((maxY - minY) * scale + 48) + 'px';
-  board.classList.add('board');
-  appendTrackballVisual(board, scale, minX, minY);
-  LAYOUT_XS.filter(k => !k.trackball).forEach(k => {
-    const div = document.createElement('div');
-    div.className = 'key';
-    positionKeyDiv(div, k, scale, minX, minY);
-    const posSpan = document.createElement('span');
-    posSpan.className = 'pos';
-    posSpan.textContent = k.pos;
-    div.appendChild(posSpan);
-    const binding = layer.bindings[k.pos];
-    const label = document.createElement('span');
-    label.textContent = binding ? shortLabel(behaviorBindingToToken(binding, live.kindByBehaviorId)) : '?';
-    div.appendChild(label);
-    div.addEventListener('click', () => {
-      const current = binding ? behaviorBindingToToken(binding, live.kindByBehaviorId) : '&trans';
-      openPicker(current, (token) => liveSetBinding(k.pos, token));
-    });
-    board.appendChild(div);
-  });
 }
 
 /* ============================================================
@@ -1186,6 +1004,63 @@ function renderTrackballPanel() {
 }
 
 /* ============================================================
+ * 4a2. Gesture editor (trackball / trackpad directional keybinds)
+ * ========================================================== */
+function renderGesturePanel() {
+  const root = document.getElementById('panel-gesture');
+  const layerIdx = state.layers.findIndex(l => l.name === GESTURE_LAYER_NAME);
+  const layerNote = layerIdx === -1
+    ? `保存すると新しく「${GESTURE_LAYER_NAME}」というレイヤーが追加されます(現時点ではレイヤー番号 ${state.layers.length} になる見込み)。`
+    : `「${GESTURE_LAYER_NAME}」レイヤー(レイヤー番号 ${layerIdx})が発動中だけジェスチャーが有効になります。`;
+
+  const directionCard = (title, pathNote, key) => {
+    const g = state.gesture[key];
+    const dirLabels = ['→ 右', '← 左', '↑ 上', '↓ 下'];
+    return `
+      <div class="tb-card">
+        <h3>${title}</h3>
+        <div class="path">${pathNote}</div>
+        <div class="row" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+          ${g.tokens.map((tok, i) => `
+            <button class="gesture-dir-btn" data-key="${key}" data-idx="${i}" style="min-width:110px;">
+              ${dirLabels[i]}: ${shortLabel(tok)}
+            </button>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  };
+
+  root.innerHTML = `
+    <div class="notice">
+      トラックボール/トラックパッドの移動を4方向のキー入力に変換する「ジェスチャー」機能です。
+      実験的な外部モジュール(<code>te9no/zmk-input-processor-keybind</code>、公式にリリースなし・
+      "somewhat works" と明記)を使用します。保存すると <code>config/west.yml</code> に依存モジュールが
+      追加され、対応する overlay ファイルにジェスチャー用の設定ブロックが追記されます。<br>
+      ${layerNote} キーマップタブで任意のキーに <code>&amp;mo ${layerIdx === -1 ? state.layers.length : layerIdx}</code>
+      を割り当てて、ジェスチャー発動キーにしてください。<br>
+      トラックパッドは本来のハードウェアスワイプ検知ではなく、トラックボールと同じ「移動量→方向キー」の
+      仕組みを流用したものです。
+    </div>
+    ${directionCard('トラックボール(右手)', 'boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_right.overlay', 'trackball')}
+    ${directionCard('トラックパッド(左手)', 'boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_left.overlay', 'trackpad')}
+  `;
+
+  root.querySelectorAll('.gesture-dir-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.key;
+      const idx = Number(btn.dataset.idx);
+      const current = state.gesture[key].tokens[idx];
+      openPicker(current, (token) => {
+        state.gesture[key].tokens[idx] = token;
+        setDirty(true);
+        renderGesturePanel();
+      });
+    });
+  });
+}
+
+/* ============================================================
  * 4b. Combo editor
  * ========================================================== */
 function renderComboPanel() {
@@ -1253,8 +1128,8 @@ function renderComboPanel() {
 }
 
 function openPositionPicker(combo) {
-  const backdrop = document.getElementById('picker-backdrop');
-  const picker = document.getElementById('picker');
+  const backdrop = document.getElementById('position-picker-backdrop');
+  const picker = document.getElementById('position-picker');
   const selected = new Set(combo.keyPositions);
   picker.innerHTML = `
     <h3>「${combo.name}」で同時押しするキーを選択</h3>
@@ -1272,10 +1147,14 @@ function openPositionPicker(combo) {
   picker.querySelector('#btn-position-done').addEventListener('click', () => {
     combo.keyPositions = Array.from(selected).sort((a, b) => a - b);
     setDirty(true);
-    closePicker();
+    closePositionPicker();
     renderComboPanel();
   });
   backdrop.classList.add('open');
+}
+
+function closePositionPicker() {
+  document.getElementById('position-picker-backdrop').classList.remove('open');
 }
 
 /* ============================================================
@@ -1385,6 +1264,13 @@ function isValidLayerName(name) {
   return /^[A-Za-z_][A-Za-z0-9_]*$/.test(name);
 }
 
+// Native 'dblclick' is unreliable here: a single click already tears down
+// and rebuilds every button in #layer-tabs (renderLayerTabs() below), and
+// some browsers fail to pair up two clicks into a dblclick when the target
+// element gets replaced mid-sequence. Track double-clicks manually by name
+// + timestamp instead, which survives the re-render between clicks.
+let layerClickTracker = { name: null, timer: null };
+
 function renderLayerTabs() {
   const root = document.getElementById('layer-tabs');
   root.innerHTML = '';
@@ -1393,8 +1279,20 @@ function renderLayerTabs() {
     b.textContent = l.name;
     b.className = l.name === state.currentLayer ? 'active' : '';
     b.title = 'ダブルクリックで名前を変更';
-    b.addEventListener('click', () => { state.currentLayer = l.name; renderLayerTabs(); renderBoard(); });
-    b.addEventListener('dblclick', () => startRenameLayer(l, b));
+    b.addEventListener('click', () => {
+      if (layerClickTracker.name === l.name && layerClickTracker.timer) {
+        clearTimeout(layerClickTracker.timer);
+        layerClickTracker = { name: null, timer: null };
+        startRenameLayer(l, b);
+        return;
+      }
+      if (layerClickTracker.timer) clearTimeout(layerClickTracker.timer);
+      layerClickTracker.name = l.name;
+      layerClickTracker.timer = setTimeout(() => { layerClickTracker = { name: null, timer: null }; }, 400);
+      state.currentLayer = l.name;
+      renderLayerTabs();
+      renderBoard();
+    });
     root.appendChild(b);
   });
   const addBtn = document.createElement('button');
@@ -1507,10 +1405,19 @@ function renderKeyPositionPicker(container, selected, onToggle) {
 function renderBoard() {
   const board = document.getElementById('board');
   board.innerHTML = '';
-  const scale = 0.52; // px per devicetree unit (100 = 1u)
   const { minX, minY, maxX, maxY } = computeBoardMetrics();
 
-  board.style.width = ((maxX - minX) * scale + 48) + 'px';
+  // Target a large-but-comfortable scale, but shrink to fit the available
+  // width of .board-wrap so the whole board is visible without a
+  // horizontal scrollbar, regardless of window size.
+  const desiredScale = 0.9; // px per devicetree unit (100 = 1u)
+  const naturalSpanX = maxX - minX;
+  const wrap = board.parentElement;
+  const availableWidth = (wrap && wrap.clientWidth) ? wrap.clientWidth : 900;
+  const fitScale = Math.max(0.35, (availableWidth - 48) / naturalSpanX);
+  const scale = Math.min(desiredScale, fitScale);
+
+  board.style.width = (naturalSpanX * scale + 48) + 'px';
   board.style.height = ((maxY - minY) * scale + 48) + 'px';
 
   appendTrackballVisual(board, scale, minX, minY);
@@ -1519,6 +1426,7 @@ function renderBoard() {
   LAYOUT_XS.filter(k => !k.trackball).forEach(k => {
     const div = document.createElement('div');
     div.className = 'key';
+    div.dataset.pos = k.pos;
     positionKeyDiv(div, k, scale, minX, minY);
     const posSpan = document.createElement('span');
     posSpan.className = 'pos';
@@ -1532,7 +1440,9 @@ function renderBoard() {
         currentLayerTokens()[k.pos] = token;
         setDirty(true);
         renderBoard();
+        highlightBoardPos(k.pos);
       });
+      highlightBoardPos(k.pos);
     });
     board.appendChild(div);
   });
@@ -1550,120 +1460,162 @@ const NAV_KEYS = ['UP_ARROW','DOWN','LEFT','RIGHT_ARROW','LEFT_ARROW','HOME','EN
 const MEDIA_KEYS = ['C_VOLUME_UP','C_VOL_DN','C_AC_SCROLL_UP','C_AC_SCROLL_DOWN'];
 function macroTokens() { return state.macros.map(m => m.id); }
 
-// Generic binding picker: shows the current value and calls onSelect(token)
-// with the chosen devicetree token string. Used for layer keys, combo
-// bindings, and macro steps alike.
+// Generic binding picker: a persistent docked panel (Remap-style) that shows
+// the current value and calls onSelect(token) with the chosen devicetree
+// token string. Used for layer keys, combo bindings, gesture directions, and
+// macro steps alike. Unlike the old modal, applying a token does not close
+// the panel -- it stays docked so the user can keep tweaking or click the
+// next key on the board.
+const PICKER_TABS = [
+  { id: 'basic', label: 'BASIC' },
+  { id: 'symbol', label: 'SYMBOL' },
+  { id: 'function', label: 'FUNCTIONS' },
+  { id: 'nav', label: 'NAV' },
+  { id: 'mod', label: 'MOD' },
+  { id: 'media', label: 'MEDIA' },
+  { id: 'bt', label: 'BLUETOOTH' },
+  { id: 'mouse', label: 'MOUSE' },
+  { id: 'layer', label: 'LAYER' },
+  { id: 'macro', label: 'MACRO' },
+  { id: 'raw', label: 'RAW' },
+];
+
+function highlightBoardPos(pos) {
+  document.querySelectorAll('#board .key.selected').forEach(el => el.classList.remove('selected'));
+  const div = document.querySelector(`#board .key[data-pos="${pos}"]`);
+  if (div) div.classList.add('selected');
+}
+
 function openPicker(current, onSelect) {
   state.onPickerSelect = onSelect;
-  const backdrop = document.getElementById('picker-backdrop');
-  const picker = document.getElementById('picker');
+  state.pickerCurrent = current;
+  if (!state.pickerActiveTab) state.pickerActiveTab = 'basic';
+  document.querySelectorAll('#board .key.selected').forEach(el => el.classList.remove('selected'));
 
+  const dock = document.getElementById('picker-dock');
+  dock.classList.remove('empty');
+  document.getElementById('picker-current').innerHTML = `割り当てを選択(現在: <code>${current}</code>)`;
+
+  const cats = document.getElementById('picker-cats');
+  cats.innerHTML = PICKER_TABS.map(t =>
+    `<button class="${t.id === state.pickerActiveTab ? 'active' : ''}" data-tab="${t.id}">${t.label}</button>`
+  ).join('');
+  cats.querySelectorAll('button[data-tab]').forEach(b => {
+    b.addEventListener('click', () => {
+      state.pickerActiveTab = b.dataset.tab;
+      openPicker(state.pickerCurrent, state.onPickerSelect);
+    });
+  });
+
+  renderPickerBody();
+}
+
+function renderPickerBody() {
+  const body = document.getElementById('picker-body');
   const kpGrid = (list) => `<div class="grid">${list.map(k => `<button data-token="&kp ${k}">${k.replace(/_/g,' ')}</button>`).join('')}</div>`;
 
-  picker.innerHTML = `
-    <h3>割り当てを選択(現在: <code>${current}</code>)</h3>
-
-    <div class="cat"><h4>文字</h4>${kpGrid(LETTERS)}</div>
-    <div class="cat"><h4>数字</h4>${kpGrid(NUMBERS)}</div>
-    <div class="cat"><h4>記号</h4>${kpGrid(SYMBOLS)}</div>
-    <div class="cat"><h4>ファンクション</h4>${kpGrid(FUNCTION_KEYS)}</div>
-    <div class="cat"><h4>修飾 / 特殊</h4>${kpGrid(SPECIAL_KEYS)}</div>
-    <div class="cat"><h4>矢印 / ナビゲーション</h4>${kpGrid(NAV_KEYS)}</div>
-    <div class="cat"><h4>メディア / スクロール</h4>${kpGrid(MEDIA_KEYS)}</div>
-
-    <div class="cat">
-      <h4>Bluetooth</h4>
-      <div class="grid">
+  switch (state.pickerActiveTab) {
+    case 'basic':
+      body.innerHTML = kpGrid(LETTERS) + kpGrid(NUMBERS);
+      break;
+    case 'symbol':
+      body.innerHTML = kpGrid(SYMBOLS);
+      break;
+    case 'function':
+      body.innerHTML = kpGrid(FUNCTION_KEYS);
+      break;
+    case 'nav':
+      body.innerHTML = kpGrid(NAV_KEYS);
+      break;
+    case 'mod':
+      body.innerHTML = kpGrid(SPECIAL_KEYS);
+      break;
+    case 'media':
+      body.innerHTML = kpGrid(MEDIA_KEYS);
+      break;
+    case 'bt':
+      body.innerHTML = `<div class="grid">
         ${[0,1,2,3,4].map(n => `<button data-token="&bt BT_SEL ${n}">選択${n}</button>`).join('')}
         <button data-token="&bt BT_CLR">この端末を削除</button>
         <button data-token="&bt BT_CLR_ALL">全削除</button>
-      </div>
-    </div>
+      </div>`;
+      break;
+    case 'mouse':
+      body.innerHTML = `<div class="grid">${[1,2,3,4,5].map(n => `<button data-token="&mkp MB${n}">MB${n}</button>`).join('')}</div>`;
+      break;
+    case 'macro':
+      body.innerHTML = `<div class="grid">${macroTokens().map(m => `<button data-token="&${m}">${m}</button>`).join('') || '<span style="font-size:12px;color:var(--muted)">(マクロタブでまだ何も定義されていません)</span>'}</div>`;
+      break;
+    case 'layer':
+      body.innerHTML = `
+        <div class="grid" style="margin-bottom:10px;">
+          <button data-token="&trans">&trans (透過)</button>
+          <button data-token="&none">&none (無効)</button>
+        </div>
+        <div class="row">
+          <span>レイヤー番号:</span>
+          <input type="number" id="layer-num" min="0" max="9" value="1">
+          <button id="btn-mo">&mo (押している間)</button>
+          <button id="btn-to">&to (切替)</button>
+          <button id="btn-sk">&sk (ワンショット)</button>
+          <button id="btn-sl">&sl (ワンショットレイヤー)</button>
+        </div>
+        <div class="row">
+          <span>&lt (長押しでレイヤー / タップでキー):</span>
+          <input type="text" id="lt-key" placeholder="例: H">
+          <button id="btn-lt">&lt を設定</button>
+        </div>
+      `;
+      body.querySelector('#btn-mo').addEventListener('click', () => applyPickerToken(`&mo ${body.querySelector('#layer-num').value}`));
+      body.querySelector('#btn-to').addEventListener('click', () => applyPickerToken(`&to ${body.querySelector('#layer-num').value}`));
+      body.querySelector('#btn-sk').addEventListener('click', () => applyPickerToken(`&sk ${body.querySelector('#layer-num').value}`));
+      body.querySelector('#btn-sl').addEventListener('click', () => applyPickerToken(`&sl ${body.querySelector('#layer-num').value}`));
+      body.querySelector('#btn-lt').addEventListener('click', () => {
+        const layerNum = body.querySelector('#layer-num').value;
+        const key = body.querySelector('#lt-key').value.trim();
+        if (!key) { alert('タップ時のキーを入力してください'); return; }
+        applyPickerToken(`&lt ${layerNum} ${key}`);
+      });
+      break;
+    case 'raw':
+      body.innerHTML = `
+        <div class="row">
+          <input type="text" class="wide" id="raw-input" placeholder="例: &kp GRAVE や &lt 3 X">
+          <button id="btn-raw">設定</button>
+        </div>
+      `;
+      body.querySelector('#btn-raw').addEventListener('click', () => {
+        const raw = body.querySelector('#raw-input').value.trim();
+        if (!raw.startsWith('&')) { alert('& から始まるビヘイビアを入力してください'); return; }
+        applyPickerToken(raw);
+      });
+      break;
+  }
 
-    <div class="cat">
-      <h4>マウスボタン</h4>
-      <div class="grid">${[1,2,3,4,5].map(n => `<button data-token="&mkp MB${n}">MB${n}</button>`).join('')}</div>
-    </div>
-
-    <div class="cat">
-      <h4>マクロ</h4>
-      <div class="grid">${macroTokens().map(m => `<button data-token="&${m}">${m}</button>`).join('') || '<span style="font-size:12px;color:var(--muted)">(マクロタブでまだ何も定義されていません)</span>'}</div>
-    </div>
-
-    <div class="cat">
-      <h4>透過 / 無効</h4>
-      <div class="grid">
-        <button data-token="&trans">&trans (透過)</button>
-        <button data-token="&none">&none (無効)</button>
-      </div>
-    </div>
-
-    <div class="cat">
-      <h4>レイヤー操作</h4>
-      <div class="row">
-        <span>レイヤー番号:</span>
-        <input type="number" id="layer-num" min="0" max="9" value="1">
-        <button id="btn-mo">&mo (押している間)</button>
-        <button id="btn-to">&to (切替)</button>
-        <button id="btn-sk">&sk (ワンショット)</button>
-        <button id="btn-sl">&sl (ワンショットレイヤー)</button>
-      </div>
-      <div class="row">
-        <span>&lt (長押しでレイヤー / タップでキー):</span>
-        <input type="text" id="lt-key" placeholder="例: H">
-        <button id="btn-lt">&lt を設定</button>
-      </div>
-    </div>
-
-    <div class="cat">
-      <h4>直接入力(上記にないビヘイビア用)</h4>
-      <div class="row">
-        <input type="text" class="wide" id="raw-input" placeholder="例: &kp GRAVE や &lt 3 X">
-        <button id="btn-raw">設定</button>
-      </div>
-    </div>
-
-    <div class="close-row">
-      <button id="btn-picker-close">閉じる</button>
-    </div>
-  `;
-
-  picker.querySelectorAll('button[data-token]').forEach(b => {
+  body.querySelectorAll('button[data-token]').forEach(b => {
     b.addEventListener('click', () => applyPickerToken(b.dataset.token));
   });
-  picker.querySelector('#btn-mo').addEventListener('click', () => applyPickerToken(`&mo ${picker.querySelector('#layer-num').value}`));
-  picker.querySelector('#btn-to').addEventListener('click', () => applyPickerToken(`&to ${picker.querySelector('#layer-num').value}`));
-  picker.querySelector('#btn-sk').addEventListener('click', () => applyPickerToken(`&sk ${picker.querySelector('#layer-num').value}`));
-  picker.querySelector('#btn-sl').addEventListener('click', () => applyPickerToken(`&sl ${picker.querySelector('#layer-num').value}`));
-  picker.querySelector('#btn-lt').addEventListener('click', () => {
-    const layerNum = picker.querySelector('#layer-num').value;
-    const key = picker.querySelector('#lt-key').value.trim();
-    if (!key) { alert('タップ時のキーを入力してください'); return; }
-    applyPickerToken(`&lt ${layerNum} ${key}`);
-  });
-  picker.querySelector('#btn-raw').addEventListener('click', () => {
-    const raw = picker.querySelector('#raw-input').value.trim();
-    if (!raw.startsWith('&')) { alert('& から始まるビヘイビアを入力してください'); return; }
-    applyPickerToken(raw);
-  });
-  picker.querySelector('#btn-picker-close').addEventListener('click', closePicker);
-
-  backdrop.classList.add('open');
 }
 
 function applyPickerToken(token) {
   const cb = state.onPickerSelect;
-  closePicker();
+  state.pickerCurrent = token;
+  document.getElementById('picker-current').innerHTML = `割り当てを選択(現在: <code>${token}</code>)`;
   if (cb) cb(token);
 }
 
 function closePicker() {
-  document.getElementById('picker-backdrop').classList.remove('open');
+  const dock = document.getElementById('picker-dock');
+  dock.classList.add('empty');
+  document.getElementById('picker-current').textContent = 'キーやコンボ、マクロのステップをクリックすると、ここでキーコードを選べます';
+  document.getElementById('picker-cats').innerHTML = '';
+  document.getElementById('picker-body').innerHTML = '';
   state.onPickerSelect = null;
+  document.querySelectorAll('#board .key.selected').forEach(el => el.classList.remove('selected'));
 }
 
-document.getElementById('picker-backdrop').addEventListener('click', (e) => {
-  if (e.target.id === 'picker-backdrop') closePicker();
+document.getElementById('position-picker-backdrop').addEventListener('click', (e) => {
+  if (e.target.id === 'position-picker-backdrop') closePositionPicker();
 });
 
 /* ============================================================
@@ -1673,6 +1625,7 @@ document.getElementById('btn-open').addEventListener('click', () => openFolder()
   if (e.name !== 'AbortError') { console.error(e); alert('フォルダを開けませんでした: ' + e.message); }
 }));
 document.getElementById('btn-save').addEventListener('click', saveAll);
+document.getElementById('btn-picker-close').addEventListener('click', closePicker);
 
 document.querySelectorAll('nav.tabs .tab').forEach(tab => {
   tab.addEventListener('click', () => {
@@ -1682,8 +1635,6 @@ document.querySelectorAll('nav.tabs .tab').forEach(tab => {
     document.getElementById(tab.dataset.panel).classList.add('active');
   });
 });
-
-renderLivePanel();
 </script>
 </body>
 </html>
