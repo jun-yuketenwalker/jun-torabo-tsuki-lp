@@ -627,23 +627,10 @@ function writeInvertFlags(fullText, blockRange, processorName, flags) {
  * can be safely regenerated on every save without disturbing hand-written
  * content elsewhere in the file.
  * ========================================================== */
-const GESTURE_INCLUDE_LINE = '#include <input/processors/zmk-input-processor-keybind.dtsi>';
 const GESTURE_MARKER_START = '/* === keymap-editor: gesture config (auto-generated, safe to regenerate) === */';
 const GESTURE_MARKER_END = '/* === keymap-editor: end gesture config === */';
 const GESTURE_LAYER_NAME = 'Gesture';
 const GESTURE_DEFAULT_TOKENS = ['&kp RIGHT', '&kp LEFT', '&kp UP', '&kp DOWN'];
-
-function ensureIncludeLine(text, includeLine) {
-  if (text.includes(includeLine)) return text;
-  const includeRe = /^#include.*$/gm;
-  let lastMatch = null, m;
-  while ((m = includeRe.exec(text)) && m.index < 2000) lastMatch = m;
-  if (lastMatch) {
-    const insertPos = lastMatch.index + lastMatch[0].length;
-    return text.slice(0, insertPos) + '\n' + includeLine + text.slice(insertPos);
-  }
-  return includeLine + '\n' + text;
-}
 
 function extractMarkedBlock(text, startMarker, endMarker) {
   const s = text.indexOf(startMarker);
@@ -689,14 +676,13 @@ ${GESTURE_MARKER_END}
 }
 
 function writeGestureBlock(text, nodeLabel, layerNum, tokens) {
-  let out = ensureIncludeLine(text, GESTURE_INCLUDE_LINE);
   const newBlockText = buildGestureBlockText(nodeLabel, layerNum, tokens);
-  const block = extractMarkedBlock(out, GESTURE_MARKER_START, GESTURE_MARKER_END);
+  const block = extractMarkedBlock(text, GESTURE_MARKER_START, GESTURE_MARKER_END);
   if (block) {
-    return out.slice(0, block.start) + newBlockText + out.slice(block.end);
+    return text.slice(0, block.start) + newBlockText + text.slice(block.end);
   }
-  const sep = out.endsWith('\n') ? '\n' : '\n\n';
-  return out + sep + newBlockText;
+  const sep = text.endsWith('\n') ? '\n' : '\n\n';
+  return text + sep + newBlockText;
 }
 
 function ensureWestModule(text, remoteName, urlBase, projectName, revision) {

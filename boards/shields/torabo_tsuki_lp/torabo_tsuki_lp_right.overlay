@@ -2,7 +2,6 @@
 #include <input/processors.dtsi>
 #include <dt-bindings/zmk/input_transform.h>
 #include <dt-bindings/input/input-event-codes.h>
-#include <input/processors/zmk-input-processor-keybind.dtsi>
 
 / {
     vertical_scroll_mapper: vertical_scroll_mapper {
