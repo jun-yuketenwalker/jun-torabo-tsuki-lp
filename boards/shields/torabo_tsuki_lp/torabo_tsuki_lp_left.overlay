@@ -1,7 +1,28 @@
 #include "torabo_tsuki_lp.dtsi"
 #include <input/processors.dtsi>
 #include <dt-bindings/zmk/input_transform.h>
+#include <input/processors/zmk-input-processor-keybind.dtsi>
 
 &pointing_listener {
     input-processors = <&zip_xy_transform (INPUT_TRANSFORM_X_INVERT | INPUT_TRANSFORM_Y_INVERT)>;
 };
+
+/* === keymap-editor: gesture config (auto-generated, safe to regenerate) === */
+/ {
+    zip_gesture_trackpad: zip_gesture_trackpad {
+        compatible = "zmk,input-processor-keybind";
+        #input-processor-cells = <0>;
+        mode = <1>;
+        bindings = <&kp LC(LG(LEFT))>, <&kp LC(LG(RIGHT))>, <&kp LG(D)>, <&kp LG(TAB)>;
+        tick = <40>;
+        tap-ms = <10>;
+    };
+};
+
+&pointing_listener {
+    gesture_layer {
+        layers = <8>;
+        input-processors = <&zip_gesture_trackpad>;
+    };
+};
+/* === keymap-editor: end gesture config === */

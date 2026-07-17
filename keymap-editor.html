@@ -207,6 +207,12 @@
   .tb-row input[type=range] { flex: 1; }
   .tb-row .val { width: 60px; text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; }
   .tb-row.checkbox label { width: auto; }
+  .gesture-dir-btn.selected {
+    background: var(--key-active-bg);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent);
+    font-weight: 600;
+  }
 
   /* combo / macro cards */
   .item-card {
@@ -1055,7 +1061,9 @@ function renderGesturePanel() {
         state.gesture[key].tokens[idx] = token;
         setDirty(true);
         renderGesturePanel();
+        highlightGestureBtn(key, idx);
       });
+      highlightGestureBtn(key, idx);
     });
   });
 }
@@ -1480,17 +1488,28 @@ const PICKER_TABS = [
   { id: 'raw', label: 'RAW' },
 ];
 
-function highlightBoardPos(pos) {
+function clearPickerHighlights() {
   document.querySelectorAll('#board .key.selected').forEach(el => el.classList.remove('selected'));
+  document.querySelectorAll('.gesture-dir-btn.selected').forEach(el => el.classList.remove('selected'));
+}
+
+function highlightBoardPos(pos) {
+  clearPickerHighlights();
   const div = document.querySelector(`#board .key[data-pos="${pos}"]`);
   if (div) div.classList.add('selected');
+}
+
+function highlightGestureBtn(key, idx) {
+  clearPickerHighlights();
+  const btn = document.querySelector(`.gesture-dir-btn[data-key="${key}"][data-idx="${idx}"]`);
+  if (btn) btn.classList.add('selected');
 }
 
 function openPicker(current, onSelect) {
   state.onPickerSelect = onSelect;
   state.pickerCurrent = current;
   if (!state.pickerActiveTab) state.pickerActiveTab = 'basic';
-  document.querySelectorAll('#board .key.selected').forEach(el => el.classList.remove('selected'));
+  clearPickerHighlights();
 
   const dock = document.getElementById('picker-dock');
   dock.classList.remove('empty');
@@ -1611,7 +1630,7 @@ function closePicker() {
   document.getElementById('picker-cats').innerHTML = '';
   document.getElementById('picker-body').innerHTML = '';
   state.onPickerSelect = null;
-  document.querySelectorAll('#board .key.selected').forEach(el => el.classList.remove('selected'));
+  clearPickerHighlights();
 }
 
 document.getElementById('position-picker-backdrop').addEventListener('click', (e) => {

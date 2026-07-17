@@ -1,10 +1,15 @@
 manifest:
   remotes:
+    - name: te9no
+      url-base: https://github.com/te9no
     - name: zmkfirmware
       url-base: https://github.com/zmkfirmware
     - name: sekigon-gonnoc
       url-base: https://github.com/sekigon-gonnoc
   projects:
+    - name: zmk-input-processor-keybind
+      remote: te9no
+      revision: main
     - name: zmk
       remote: zmkfirmware
       revision: v0.3
