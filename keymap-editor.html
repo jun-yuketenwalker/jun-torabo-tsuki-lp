@@ -671,7 +671,13 @@ function parseGestureBlock(text) {
   return { tokens: (tokens && tokens.length === 4) ? tokens : GESTURE_DEFAULT_TOKENS.slice() };
 }
 
-function buildGestureBlockText(nodeLabel, layerNum, tokens) {
+// listenerRef is the devicetree label of whichever zmk,input-listener node
+// actually sees this pointer's movement -- &pointing_listener for a listener
+// that's local to the same shield, or &pointing_device_split_listener for a
+// peripheral's pointing device whose raw movement is forwarded to the
+// central via zmk,input-split (layer state only exists on the central, so a
+// peripheral's own local listener never sees it and can't gate anything).
+function buildGestureBlockText(nodeLabel, layerNum, tokens, listenerRef) {
   const bindings = tokens.map(t => `<${t}>`).join(', ');
   return `${GESTURE_MARKER_START}
 / {
@@ -685,7 +691,7 @@ function buildGestureBlockText(nodeLabel, layerNum, tokens) {
     };
 };
 
-&pointing_listener {
+${listenerRef} {
     gesture_layer {
         layers = <${layerNum}>;
         input-processors = <&${nodeLabel}>;
@@ -695,10 +701,10 @@ ${GESTURE_MARKER_END}
 `;
 }
 
-function writeGestureBlock(text, nodeLabel, layerNum, tokens) {
+function writeGestureBlock(text, nodeLabel, layerNum, tokens, listenerRef) {
   let out = ensureIncludeLine(text, KEYS_INCLUDE_LINE);
   out = ensureIncludeLine(out, MODIFIERS_INCLUDE_LINE);
-  const newBlockText = buildGestureBlockText(nodeLabel, layerNum, tokens);
+  const newBlockText = buildGestureBlockText(nodeLabel, layerNum, tokens, listenerRef);
   const block = extractMarkedBlock(out, GESTURE_MARKER_START, GESTURE_MARKER_END);
   if (block) {
     return out.slice(0, block.start) + newBlockText + out.slice(block.end);
@@ -786,7 +792,13 @@ async function openFolder() {
 
   state.gesture = {
     trackball: parseGestureBlock(state.originalTexts.rightOverlay),
-    trackpad: parseGestureBlock(state.originalTexts.leftOverlay),
+    // The trackpad-mini is on the peripheral, but its raw movement is
+    // forwarded to the central via zmk,input-split (see the "input-split"
+    // vs. "input-listener" snippets in build.yaml) -- the peripheral's own
+    // &pointing_listener never sees it, only the central's
+    // pointing_device_split_listener (in splitListenerOverlay) does, since
+    // layer state (which gates the gesture) only exists on the central.
+    trackpad: parseGestureBlock(state.originalTexts.splitListenerOverlay),
   };
 
   loadTrackballSettings();
@@ -890,16 +902,19 @@ async function saveAll() {
         rightText = writeScalerFraction(rightText, scrollBlockAbs, 'zip_scroll_scaler', tb.right.scroll.num, tb.right.scroll.den);
       }
     }
-    rightText = writeGestureBlock(rightText, 'zip_gesture_trackball', gestureLayerIndex, state.gesture.trackball.tokens);
+    rightText = writeGestureBlock(rightText, 'zip_gesture_trackball', gestureLayerIndex, state.gesture.trackball.tokens, '&pointing_listener');
     state.originalTexts.rightOverlay = rightText;
     await writeFile('rightOverlay', rightText);
 
-    // 2b. left.overlay (trackpad gesture)
-    let leftText = writeGestureBlock(state.originalTexts.leftOverlay, 'zip_gesture_trackpad', gestureLayerIndex, state.gesture.trackpad.tokens);
-    state.originalTexts.leftOverlay = leftText;
-    await writeFile('leftOverlay', leftText);
+    // 2b. left.overlay: no gesture block here. The trackpad-mini is on this
+    // peripheral, but its movement is forwarded via zmk,input-split rather
+    // than processed locally, so &pointing_listener in this file never sees
+    // it -- see the comment on state.gesture.trackpad in openFolder().
+    await writeFile('leftOverlay', state.originalTexts.leftOverlay);
 
-    // 3. input-split-listener.overlay (left / double-ball side speed + invert flags)
+    // 3. input-split-listener.overlay (left / double-ball side speed + invert
+    // flags + trackpad gesture, since this is the listener that actually
+    // receives the peripheral's forwarded movement on the central).
     let splitText = state.originalTexts.splitListenerOverlay;
     const splitBlock = extractBlock(splitText, 'pointing_device_split_listener:');
     if (splitBlock) {
@@ -908,6 +923,7 @@ async function saveAll() {
       splitText = writeInvertFlags(splitText, extractBlock(splitText, 'pointing_device_split_listener:'), 'zip_xy_transform', tb.split.xyInvert);
       splitText = writeInvertFlags(splitText, extractBlock(splitText, 'pointing_device_split_listener:'), 'zip_scroll_transform', tb.split.scrollInvert);
     }
+    splitText = writeGestureBlock(splitText, 'zip_gesture_trackpad', gestureLayerIndex, state.gesture.trackpad.tokens, '&pointing_device_split_listener');
     state.originalTexts.splitListenerOverlay = splitText;
     await writeFile('splitListenerOverlay', splitText);
 
@@ -1079,7 +1095,7 @@ function renderGesturePanel() {
       仕組みを流用したものです。
     </div>
     ${directionCard('トラックボール(右手)', 'boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_right.overlay', 'trackball')}
-    ${directionCard('トラックパッド(左手)', 'boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_left.overlay', 'trackpad')}
+    ${directionCard('トラックパッド(左手)', 'snippets/input-split-listener/input-split-listener.overlay', 'trackpad')}
   `;
 
   root.querySelectorAll('.gesture-dir-btn').forEach(btn => {
