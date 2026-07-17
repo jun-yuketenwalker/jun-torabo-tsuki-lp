@@ -57,7 +57,7 @@
 
 &pointing_listener {
     gesture_layer {
-        layers = <8>;
+        layers = <12>;
         input-processors = <&zip_gesture_trackball>;
     };
 };

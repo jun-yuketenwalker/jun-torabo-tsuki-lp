@@ -802,15 +802,35 @@ async function openFolder() {
   renderGesturePanel();
 }
 
+// `status = "reserved"` placeholder layers (extra1-4) have no `bindings`
+// property, so findLayerBlocks()/state.layers never see them -- but this repo
+// builds with the studio-rpc-usb-uart snippet on every shield, and per ZMK's
+// docs, Studio-enabled builds do NOT ignore reserved layers the way a plain
+// build would ("ignored during regular ZMK builds but... available for ZMK
+// Studio enabled builds"). They still occupy real numeric layer indices in
+// the compiled firmware, ahead of anything declared after them. Any newly
+// appended layer (like Gesture) needs that count added back in, or its
+// &mo/gesture_layer references end up pointing at the wrong compiled layer.
+function countReservedLayers(keymapText) {
+  const keymapNodeStart = keymapText.indexOf('keymap {');
+  if (keymapNodeStart === -1) return 0;
+  const reservedRe = /\w+\s*\{\s*status\s*=\s*"reserved";\s*\}/g;
+  reservedRe.lastIndex = keymapNodeStart;
+  let count = 0;
+  while (reservedRe.exec(keymapText)) count++;
+  return count;
+}
+
 // Finds (or creates) the shared "Gesture" layer in state.layers and returns
-// its eventual compiled layer index (declaration order among real layers;
-// `status = "reserved"` placeholder layers are excluded from normal builds
-// and don't consume an index).
+// its eventual compiled layer index (declaration order among real layers,
+// plus any reserved placeholder layers that precede it -- see
+// countReservedLayers() above).
 function ensureGestureLayer() {
+  const reservedCount = countReservedLayers(state.originalTexts.keymap);
   const idx = state.layers.findIndex(l => l.name === GESTURE_LAYER_NAME);
-  if (idx !== -1) return idx;
+  if (idx !== -1) return idx + reservedCount;
   state.layers.push({ name: GESTURE_LAYER_NAME, tokens: new Array(66).fill('&trans') });
-  return state.layers.length - 1;
+  return state.layers.length - 1 + reservedCount;
 }
 
 function setDirty(v) {
@@ -1022,9 +1042,11 @@ function renderTrackballPanel() {
  * ========================================================== */
 function renderGesturePanel() {
   const root = document.getElementById('panel-gesture');
-  const layerIdx = state.layers.findIndex(l => l.name === GESTURE_LAYER_NAME);
-  const layerNote = layerIdx === -1
-    ? `保存すると新しく「${GESTURE_LAYER_NAME}」というレイヤーが追加されます(現時点ではレイヤー番号 ${state.layers.length} になる見込み)。`
+  const reservedCount = countReservedLayers(state.originalTexts.keymap);
+  const rawIdx = state.layers.findIndex(l => l.name === GESTURE_LAYER_NAME);
+  const layerIdx = rawIdx === -1 ? state.layers.length + reservedCount : rawIdx + reservedCount;
+  const layerNote = rawIdx === -1
+    ? `保存すると新しく「${GESTURE_LAYER_NAME}」というレイヤーが追加されます(現時点ではレイヤー番号 ${layerIdx} になる見込み)。`
     : `「${GESTURE_LAYER_NAME}」レイヤー(レイヤー番号 ${layerIdx})が発動中だけジェスチャーが有効になります。`;
 
   const directionCard = (title, pathNote, key) => {
@@ -1051,7 +1073,7 @@ function renderGesturePanel() {
       実験的な外部モジュール(<code>te9no/zmk-input-processor-keybind</code>、公式にリリースなし・
       "somewhat works" と明記)を使用します。保存すると <code>config/west.yml</code> に依存モジュールが
       追加され、対応する overlay ファイルにジェスチャー用の設定ブロックが追記されます。<br>
-      ${layerNote} キーマップタブで任意のキーに <code>&amp;mo ${layerIdx === -1 ? state.layers.length : layerIdx}</code>
+      ${layerNote} キーマップタブで任意のキーに <code>&amp;mo ${layerIdx}</code>
       を割り当てて、ジェスチャー発動キーにしてください。<br>
       トラックパッドは本来のハードウェアスワイプ検知ではなく、トラックボールと同じ「移動量→方向キー」の
       仕組みを流用したものです。
