@@ -631,6 +631,24 @@ const GESTURE_MARKER_START = '/* === keymap-editor: gesture config (auto-generat
 const GESTURE_MARKER_END = '/* === keymap-editor: end gesture config === */';
 const GESTURE_LAYER_NAME = 'Gesture';
 const GESTURE_DEFAULT_TOKENS = ['&kp RIGHT', '&kp LEFT', '&kp UP', '&kp DOWN'];
+// &kp LC(...)/LG(...)/LS(...)/LA(...) modifier-wrap macros live in this header,
+// separate from dt-bindings/zmk/keys.h (plain keycodes only, already included
+// via config/keymap.keymap). Each overlay is preprocessed on its own, so any
+// overlay whose gesture bindings use a wrapped keycode needs this directly.
+const MODIFIERS_INCLUDE_LINE = '#include <dt-bindings/zmk/modifiers.h>';
+
+function ensureIncludeLine(text, includeLine) {
+  if (text.includes(includeLine)) return text;
+  const nl = text.includes('\r\n') ? '\r\n' : '\n';
+  const includeRe = /^#include.*$/gm;
+  let lastMatch = null, m;
+  while ((m = includeRe.exec(text)) && m.index < 2000) lastMatch = m;
+  if (lastMatch) {
+    const insertPos = lastMatch.index + lastMatch[0].length;
+    return text.slice(0, insertPos) + nl + includeLine + text.slice(insertPos);
+  }
+  return includeLine + nl + text;
+}
 
 function extractMarkedBlock(text, startMarker, endMarker) {
   const s = text.indexOf(startMarker);
@@ -676,13 +694,14 @@ ${GESTURE_MARKER_END}
 }
 
 function writeGestureBlock(text, nodeLabel, layerNum, tokens) {
+  const out = ensureIncludeLine(text, MODIFIERS_INCLUDE_LINE);
   const newBlockText = buildGestureBlockText(nodeLabel, layerNum, tokens);
-  const block = extractMarkedBlock(text, GESTURE_MARKER_START, GESTURE_MARKER_END);
+  const block = extractMarkedBlock(out, GESTURE_MARKER_START, GESTURE_MARKER_END);
   if (block) {
-    return text.slice(0, block.start) + newBlockText + text.slice(block.end);
+    return out.slice(0, block.start) + newBlockText + out.slice(block.end);
   }
-  const sep = text.endsWith('\n') ? '\n' : '\n\n';
-  return text + sep + newBlockText;
+  const sep = out.endsWith('\n') ? '\n' : '\n\n';
+  return out + sep + newBlockText;
 }
 
 function ensureWestModule(text, remoteName, urlBase, projectName, revision) {
