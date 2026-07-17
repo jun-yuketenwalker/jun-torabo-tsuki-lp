@@ -631,10 +631,12 @@ const GESTURE_MARKER_START = '/* === keymap-editor: gesture config (auto-generat
 const GESTURE_MARKER_END = '/* === keymap-editor: end gesture config === */';
 const GESTURE_LAYER_NAME = 'Gesture';
 const GESTURE_DEFAULT_TOKENS = ['&kp RIGHT', '&kp LEFT', '&kp UP', '&kp DOWN'];
-// &kp LC(...)/LG(...)/LS(...)/LA(...) modifier-wrap macros live in this header,
-// separate from dt-bindings/zmk/keys.h (plain keycodes only, already included
-// via config/keymap.keymap). Each overlay is preprocessed on its own, so any
-// overlay whose gesture bindings use a wrapped keycode needs this directly.
+// Each shield overlay is preprocessed on its own -- unlike config/keymap.keymap,
+// neither overlay includes dt-bindings/zmk/keys.h (plain keycodes, e.g. RIGHT,
+// TAB, D) or dt-bindings/zmk/modifiers.h (the LC()/LG()/LS()/LA() wrap macros)
+// by default, so any &kp token typed into a gesture direction needs both
+// available directly in the file it ends up in.
+const KEYS_INCLUDE_LINE = '#include <dt-bindings/zmk/keys.h>';
 const MODIFIERS_INCLUDE_LINE = '#include <dt-bindings/zmk/modifiers.h>';
 
 function ensureIncludeLine(text, includeLine) {
@@ -694,7 +696,8 @@ ${GESTURE_MARKER_END}
 }
 
 function writeGestureBlock(text, nodeLabel, layerNum, tokens) {
-  const out = ensureIncludeLine(text, MODIFIERS_INCLUDE_LINE);
+  let out = ensureIncludeLine(text, KEYS_INCLUDE_LINE);
+  out = ensureIncludeLine(out, MODIFIERS_INCLUDE_LINE);
   const newBlockText = buildGestureBlockText(nodeLabel, layerNum, tokens);
   const block = extractMarkedBlock(out, GESTURE_MARKER_START, GESTURE_MARKER_END);
   if (block) {
