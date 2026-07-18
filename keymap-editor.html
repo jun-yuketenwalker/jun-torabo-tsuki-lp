@@ -662,13 +662,19 @@ function extractMarkedBlock(text, startMarker, endMarker) {
   return { start: s, end };
 }
 
+const GESTURE_DEFAULT_TICK = 40;
+
 function parseGestureBlock(text) {
   const block = extractMarkedBlock(text, GESTURE_MARKER_START, GESTURE_MARKER_END);
-  if (!block) return { tokens: GESTURE_DEFAULT_TOKENS.slice() };
+  if (!block) return { tokens: GESTURE_DEFAULT_TOKENS.slice(), tick: GESTURE_DEFAULT_TICK };
   const blockText = text.slice(block.start, block.end);
   const bindingsM = blockText.match(/bindings\s*=\s*([^;]*);/);
   const tokens = bindingsM ? Array.from(bindingsM[1].matchAll(/<([^<>]*)>/g)).map(mm => mm[1].trim()) : null;
-  return { tokens: (tokens && tokens.length === 4) ? tokens : GESTURE_DEFAULT_TOKENS.slice() };
+  const tickM = blockText.match(/tick\s*=\s*<(\d+)>/);
+  return {
+    tokens: (tokens && tokens.length === 4) ? tokens : GESTURE_DEFAULT_TOKENS.slice(),
+    tick: tickM ? Number(tickM[1]) : GESTURE_DEFAULT_TICK,
+  };
 }
 
 // listenerRef is the devicetree label of whichever zmk,input-listener node
@@ -677,7 +683,11 @@ function parseGestureBlock(text) {
 // peripheral's pointing device whose raw movement is forwarded to the
 // central via zmk,input-split (layer state only exists on the central, so a
 // peripheral's own local listener never sees it and can't gate anything).
-function buildGestureBlockText(nodeLabel, layerNum, tokens, listenerRef) {
+// tick is how much accumulated movement (in the driver's own units) is
+// required before a direction fires -- higher = less sensitive to the small
+// inconsistent wobble at the very start of a swipe, at the cost of needing a
+// longer deliberate swipe to trigger at all.
+function buildGestureBlockText(nodeLabel, layerNum, tokens, listenerRef, tick) {
   const bindings = tokens.map(t => `<${t}>`).join(', ');
   return `${GESTURE_MARKER_START}
 / {
@@ -686,7 +696,7 @@ function buildGestureBlockText(nodeLabel, layerNum, tokens, listenerRef) {
         #input-processor-cells = <0>;
         mode = <1>;
         bindings = ${bindings};
-        tick = <40>;
+        tick = <${tick}>;
         tap-ms = <10>;
     };
 };
@@ -701,10 +711,10 @@ ${GESTURE_MARKER_END}
 `;
 }
 
-function writeGestureBlock(text, nodeLabel, layerNum, tokens, listenerRef) {
+function writeGestureBlock(text, nodeLabel, layerNum, tokens, listenerRef, tick) {
   let out = ensureIncludeLine(text, KEYS_INCLUDE_LINE);
   out = ensureIncludeLine(out, MODIFIERS_INCLUDE_LINE);
-  const newBlockText = buildGestureBlockText(nodeLabel, layerNum, tokens, listenerRef);
+  const newBlockText = buildGestureBlockText(nodeLabel, layerNum, tokens, listenerRef, tick);
   const block = extractMarkedBlock(out, GESTURE_MARKER_START, GESTURE_MARKER_END);
   if (block) {
     return out.slice(0, block.start) + newBlockText + out.slice(block.end);
@@ -902,7 +912,7 @@ async function saveAll() {
         rightText = writeScalerFraction(rightText, scrollBlockAbs, 'zip_scroll_scaler', tb.right.scroll.num, tb.right.scroll.den);
       }
     }
-    rightText = writeGestureBlock(rightText, 'zip_gesture_trackball', gestureLayerIndex, state.gesture.trackball.tokens, '&pointing_listener');
+    rightText = writeGestureBlock(rightText, 'zip_gesture_trackball', gestureLayerIndex, state.gesture.trackball.tokens, '&pointing_listener', state.gesture.trackball.tick);
     state.originalTexts.rightOverlay = rightText;
     await writeFile('rightOverlay', rightText);
 
@@ -923,7 +933,7 @@ async function saveAll() {
       splitText = writeInvertFlags(splitText, extractBlock(splitText, 'pointing_device_split_listener:'), 'zip_xy_transform', tb.split.xyInvert);
       splitText = writeInvertFlags(splitText, extractBlock(splitText, 'pointing_device_split_listener:'), 'zip_scroll_transform', tb.split.scrollInvert);
     }
-    splitText = writeGestureBlock(splitText, 'zip_gesture_trackpad', gestureLayerIndex, state.gesture.trackpad.tokens, '&pointing_device_split_listener');
+    splitText = writeGestureBlock(splitText, 'zip_gesture_trackpad', gestureLayerIndex, state.gesture.trackpad.tokens, '&pointing_device_split_listener', state.gesture.trackpad.tick);
     state.originalTexts.splitListenerOverlay = splitText;
     await writeFile('splitListenerOverlay', splitText);
 
@@ -1079,6 +1089,11 @@ function renderGesturePanel() {
             </button>
           `).join('')}
         </div>
+        <div class="row" style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;">判定距離(tick):</label>
+          <input type="number" class="gesture-tick-input" data-key="${key}" value="${g.tick}" min="10" max="300" step="5" style="width:70px;">
+          <span style="font-size:11px;color:var(--muted);">大きいほど誤反応しにくいが、方向確定までに長く動かす必要あり(既定 ${GESTURE_DEFAULT_TICK})</span>
+        </div>
       </div>
     `;
   };
@@ -1110,6 +1125,16 @@ function renderGesturePanel() {
         highlightGestureBtn(key, idx);
       });
       highlightGestureBtn(key, idx);
+    });
+  });
+
+  root.querySelectorAll('.gesture-tick-input').forEach(input => {
+    input.addEventListener('change', () => {
+      const key = input.dataset.key;
+      const v = Math.max(1, Math.round(Number(input.value)) || GESTURE_DEFAULT_TICK);
+      input.value = v;
+      state.gesture[key].tick = v;
+      setDirty(true);
     });
   });
 }
