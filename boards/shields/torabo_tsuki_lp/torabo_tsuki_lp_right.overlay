@@ -50,7 +50,7 @@
         #input-processor-cells = <0>;
         mode = <1>;
         bindings = <&kp RIGHT>, <&kp LEFT>, <&kp UP>, <&kp DOWN>;
-        tick = <40>;
+        tick = <60>;
         tap-ms = <10>;
     };
 };
@@ -62,3 +62,4 @@
     };
 };
 /* === keymap-editor: end gesture config === */
+

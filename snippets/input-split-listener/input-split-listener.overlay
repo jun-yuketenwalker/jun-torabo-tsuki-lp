@@ -30,7 +30,7 @@
         compatible = "zmk,input-processor-keybind";
         #input-processor-cells = <0>;
         mode = <1>;
-        bindings = <&kp LC(LG(LEFT))>, <&kp LC(LG(RIGHT))>, <&kp LG(D)>, <&kp LG(TAB)>;
+        bindings = <&kp LC(LG(RIGHT))>, <&kp LC(LG(LEFT))>, <&kp LG(D)>, <&kp LG(TAB)>;
         tick = <60>;
         tap-ms = <10>;
     };
