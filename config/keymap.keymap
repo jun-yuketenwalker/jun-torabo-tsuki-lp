@@ -100,7 +100,7 @@
 &trans  &kp P  &kp O  &kp I  &kp U  &kp Y  &trans  &trans  &trans  &trans  &trans  &trans
 &trans  &kp MINUS  &kp L  &kp K  &kp J  &lt 6 H  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
 &trans  &kp SLASH  &kp DOT  &kp COMMA  &kp M  &lt 6 N  &kp BACKSPACE  &trans  &trans  &trans  &trans  &trans  &trans  &trans
-&trans  &lt 7 PRINTSCREEN  &to 4  &trans  &trans  &kp ENTER  &lt 9 LANG4  &trans  &trans  &trans  &trans  &to 0  &trans  &trans
+&trans  &lt 7 PRINTSCREEN  &to 4  &trans  &trans  &kp ENTER  &lt 8 LANG4  &trans  &trans  &trans  &trans  &to 0  &trans  &trans
         >;
         };
 
@@ -134,13 +134,19 @@
         >;
         };
 
+        Left_Arrow {
+            bindings = <
+&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &trans  &kp UP_ARROW  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &kp LEFT_ARROW  &kp DOWN  &kp RIGHT_ARROW  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
+            >;
+        };
+
         // Reserved placeholder layers so ZMK Studio's live "add layer" has spare
         // capacity to fill in without a firmware rebuild (see zmk.dev/docs/features/studio,
         // "Including Extra Layers"). These are skipped in normal builds.
-        extra1 {
-            status = "reserved";
-        };
-
         extra2 {
             status = "reserved";
         };
@@ -157,15 +163,6 @@
 &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
 &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
 &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
-&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
-&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
-        >;
-        };
-        Left_Arrow {
-            bindings = <
-&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
-&trans  &trans  &trans  &kp UP_ARROW  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
-&trans  &trans  &kp LEFT_ARROW  &kp DOWN  &kp RIGHT_ARROW  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
 &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
 &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
         >;
