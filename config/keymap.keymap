@@ -65,7 +65,7 @@
 &trans  &kp Q  &kp W  &kp E  &kp R  &lt 12 T  &kp Y  &kp U  &kp I  &kp O  &kp P  &trans
 &trans  &kp A  &kp S  &kp D  &kp F  &kp G  &trans  &trans  &lt 6 H  &kp J  &kp K  &kp L  &kp MINUS  &trans
 &trans  &kp Z  &kp X  &kp C  &kp V  &kp B  &kp TAB  &kp BACKSPACE  &lt 6 N  &kp M  &kp COMMA  &kp DOT  &kp SLASH  &trans
-&trans  &kp LCTRL  &kp LGUI  &kp LALT  &kp LSHIFT  &kp SPACE  &lt 2 LANGUAGE_2  &lt 1 LANG4  &kp ENTER  &trans  &trans  &to 4  &lt 7 PRINTSCREEN  &trans
+&trans  &kp LCTRL  &kp LGUI  &kp LALT  &kp LSHIFT  &kp SPACE  &lt 2 LANGUAGE_2  &lt 1 LANG4  &kp ENTER  &trans  &trans  &to 3  &lt 7 PRINTSCREEN  &trans
         >;
         };
 
@@ -146,7 +146,7 @@
 &trans  &trans  &kp LEFT_ARROW  &kp DOWN  &kp RIGHT_ARROW  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
 &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
 &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
-            >;
+        >;
         };
 
         // Reserved placeholder layers so ZMK Studio's live "add layer" has spare
