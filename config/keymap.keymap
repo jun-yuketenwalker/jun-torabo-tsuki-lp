@@ -26,6 +26,11 @@
             bindings = <&mkp MB5>;
             key-positions = <48 49>;
         };
+
+        layer4_toggle {
+            bindings = <&tog 4>;
+            key-positions = <43 44>;
+        };
     };
 
     macros {

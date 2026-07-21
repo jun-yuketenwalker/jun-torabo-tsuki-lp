@@ -843,6 +843,41 @@ function countReservedLayers(keymapText) {
   return count;
 }
 
+// Walks every top-level layer node in the keymap { ... } node -- both real
+// (bindings-having) and `status = "reserved"` placeholder ones -- in source
+// order, and numbers them sequentially. This is the general form of the
+// index-shifting explained above countReservedLayers(): a reserved layer
+// consumes a slot regardless of where it sits, so a real layer's true
+// compiled index is its position among ALL nodes (real + reserved), not just
+// its position among the real ones. Returns { map, totalCount }, where map
+// is `original layer name -> compiled index` and totalCount is the number of
+// nodes found (used to number brand-new layers, which always get appended
+// after every existing node).
+function computeLayerNumberMap(keymapText) {
+  const keymapNodeStart = keymapText.indexOf('keymap {');
+  const map = new Map();
+  if (keymapNodeStart === -1) return { map, totalCount: 0 };
+  const nodeRe = /(\w+)\s*\{\s*(?:bindings\s*=\s*<[\s\S]*?>;\s*|status\s*=\s*"reserved";\s*)\}\s*;/g;
+  nodeRe.lastIndex = keymapNodeStart;
+  let m, idx = 0;
+  while ((m = nodeRe.exec(keymapText))) {
+    map.set(m[1], idx);
+    idx++;
+  }
+  return { map, totalCount: idx };
+}
+
+// Compiled layer number for a state.layers entry: looks it up by its
+// *original* devicetree name (stable across renames) via
+// computeLayerNumberMap(); brand-new layers (no originalName) are numbered
+// after every existing node, in the order they were added.
+function layerDisplayNumber(layer, numberInfo, newLayerIndex) {
+  if (layer.originalName && numberInfo.map.has(layer.originalName)) {
+    return numberInfo.map.get(layer.originalName);
+  }
+  return numberInfo.totalCount + newLayerIndex;
+}
+
 // Finds (or creates) the shared "Gesture" layer in state.layers and returns
 // its eventual compiled layer index (declaration order among real layers,
 // plus any reserved placeholder layers that precede it -- see
@@ -1353,9 +1388,13 @@ let layerClickTracker = { name: null, timer: null };
 function renderLayerTabs() {
   const root = document.getElementById('layer-tabs');
   root.innerHTML = '';
+  const numberInfo = computeLayerNumberMap(state.originalTexts.keymap);
+  let newLayerIndex = 0;
   state.layers.forEach(l => {
+    const num = layerDisplayNumber(l, numberInfo, newLayerIndex);
+    if (!l.originalName || !numberInfo.map.has(l.originalName)) newLayerIndex++;
     const b = document.createElement('button');
-    b.textContent = l.name;
+    b.textContent = `${num}: ${l.name}`;
     b.className = l.name === state.currentLayer ? 'active' : '';
     b.title = 'ダブルクリックで名前を変更';
     b.addEventListener('click', () => {
