@@ -177,6 +177,7 @@
   }
   #picker-body input[type=text].wide { width: 220px; }
   #picker-dock.empty #picker-cats, #picker-dock.empty #picker-body { display: none; }
+  #raw-builder-cats button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
   #picker-dock.empty .picker-header .current { font-style: italic; }
   #picker-dock.empty .picker-header #btn-picker-close { display: none; }
 
@@ -1576,6 +1577,36 @@ const FUNCTION_KEYS = Array.from({length:12}, (_, i) => 'F' + (i+1));
 const SPECIAL_KEYS = ['LCTRL','LGUI','LALT','LSHIFT','RCTRL','RGUI','RALT','RSHIFT','TAB','BACKSPACE','ENTER','SPACE','ESC','DELETE','PRINTSCREEN','LANGUAGE_2','LANG4'];
 const NAV_KEYS = ['UP_ARROW','DOWN','LEFT','RIGHT_ARROW','LEFT_ARROW','HOME','END'];
 const MEDIA_KEYS = ['C_VOLUME_UP','C_VOL_DN','C_AC_SCROLL_UP','C_AC_SCROLL_DOWN'];
+
+// RAW tab's key-combo builder: click modifier buttons to nest &kp wrapper
+// functions (LC/LS/LA/LG, each with a left/right variant), then click a
+// plain keycode to close the chain -- e.g. LCtrl then LShift then Tab
+// builds "&kp LC(LS(TAB))" (Chrome's previous-tab shortcut) without anyone
+// having to hand-type nested parens, which is exactly what broke the build
+// last time (a missing ")" in a free-typed raw token).
+const MOD_WRAPPERS = [
+  { code: 'LS', label: 'Lシフト' },     { code: 'RS', label: 'Rシフト' },
+  { code: 'LC', label: 'Lコントロール' }, { code: 'RC', label: 'Rコントロール' },
+  { code: 'LA', label: 'Lオルト' },     { code: 'RA', label: 'Rオルト' },
+  { code: 'LG', label: 'Lウィン' },     { code: 'RG', label: 'Rウィン' },
+];
+const OTHER_SPECIAL_KEYS = SPECIAL_KEYS.filter(k => !['LCTRL','LGUI','LALT','LSHIFT','RCTRL','RGUI','RALT','RSHIFT'].includes(k));
+const RAW_BUILDER_CATS = [
+  { id: 'mod', label: 'MOD' },
+  { id: 'alphabet', label: 'アルファベット' },
+  { id: 'number', label: '数字' },
+  { id: 'symbol', label: '記号' },
+  { id: 'function', label: 'ファンクション' },
+  { id: 'nav', label: 'ナビ' },
+  { id: 'media', label: 'メディア' },
+  { id: 'other', label: 'その他' },
+  { id: 'free', label: '自由入力' },
+];
+function rawBuilderPreview(stack, inner) {
+  let s = inner;
+  for (let i = stack.length - 1; i >= 0; i--) s = `${stack[i]}(${s})`;
+  return s;
+}
 function macroTokens() { return state.macros.map(m => m.id); }
 
 // Generic binding picker: a persistent docked panel (Remap-style) that shows
@@ -1619,6 +1650,10 @@ function openPicker(current, onSelect) {
   state.onPickerSelect = onSelect;
   state.pickerCurrent = current;
   if (!state.pickerActiveTab) state.pickerActiveTab = 'basic';
+  // Fresh RAW-builder state per key assignment -- carrying a half-built
+  // modifier chain over to the next key you click would be confusing.
+  state.rawBuilderStack = [];
+  if (!state.rawBuilderCat) state.rawBuilderCat = 'mod';
   clearPickerHighlights();
 
   const dock = document.getElementById('picker-dock');
@@ -1706,23 +1741,88 @@ function renderPickerBody() {
         applyPickerToken(`&lt ${layerNum} ${key}`);
       });
       break;
-    case 'raw':
+    case 'raw': {
+      const stack = state.rawBuilderStack;
       body.innerHTML = `
-        <div class="row">
-          <input type="text" class="wide" id="raw-input" placeholder="例: &kp GRAVE や &lt 3 X">
-          <button id="btn-raw">設定</button>
+        <div class="row" style="margin-bottom:10px;">
+          <span>組み立て中: <code>&kp ${rawBuilderPreview(stack, stack.length ? '…' : '(未選択)')}</code></span>
+          ${stack.length ? '<button id="raw-builder-clear">クリア</button>' : ''}
         </div>
+        <div class="grid" id="raw-builder-cats" style="margin-bottom:10px;">
+          ${RAW_BUILDER_CATS.map(c => `<button data-cat="${c.id}" class="${c.id === state.rawBuilderCat ? 'active' : ''}">${c.label}</button>`).join('')}
+        </div>
+        <div id="raw-builder-body"></div>
       `;
-      body.querySelector('#btn-raw').addEventListener('click', () => {
-        const raw = body.querySelector('#raw-input').value.trim();
-        if (!raw.startsWith('&')) { alert('& から始まるビヘイビアを入力してください'); return; }
-        applyPickerToken(raw);
+      const clearBtn = body.querySelector('#raw-builder-clear');
+      if (clearBtn) clearBtn.addEventListener('click', () => { state.rawBuilderStack = []; renderPickerBody(); });
+      body.querySelectorAll('#raw-builder-cats button[data-cat]').forEach(b => {
+        b.addEventListener('click', () => { state.rawBuilderCat = b.dataset.cat; renderPickerBody(); });
       });
+      renderRawBuilderSubBody(body.querySelector('#raw-builder-body'));
       break;
+    }
   }
 
   body.querySelectorAll('button[data-token]').forEach(b => {
     b.addEventListener('click', () => applyPickerToken(b.dataset.token));
+  });
+}
+
+// RAW tab sub-panel: MOD buttons push onto state.rawBuilderStack (kept open
+// so multiple modifiers can nest, e.g. LCtrl then LShift); any plain keycode
+// button closes the chain immediately and applies the finished token. The
+// free-text box from before is kept as a 'free' category for anything this
+// builder can't express (behaviors other than &kp, e.g. &lt/&mo/&bt/&mkp).
+function renderRawBuilderSubBody(root) {
+  const stack = state.rawBuilderStack;
+  const cat = state.rawBuilderCat;
+
+  const finish = (keycode) => {
+    const token = `&kp ${rawBuilderPreview(stack, keycode)}`;
+    state.rawBuilderStack = [];
+    applyPickerToken(token);
+    renderPickerBody();
+  };
+
+  if (cat === 'mod') {
+    root.innerHTML = `<div class="grid">${MOD_WRAPPERS.map(m =>
+      `<button data-mod="${m.code}" ${stack.includes(m.code) ? 'disabled' : ''}>${m.label}</button>`
+    ).join('')}</div>`;
+    root.querySelectorAll('button[data-mod]').forEach(b => {
+      b.addEventListener('click', () => {
+        state.rawBuilderStack = [...stack, b.dataset.mod];
+        renderPickerBody();
+      });
+    });
+    return;
+  }
+
+  if (cat === 'free') {
+    root.innerHTML = `
+      <div class="row">
+        <input type="text" class="wide" id="raw-input" placeholder="例: &kp GRAVE や &lt 3 X">
+        <button id="btn-raw">設定</button>
+      </div>
+    `;
+    root.querySelector('#btn-raw').addEventListener('click', () => {
+      const raw = root.querySelector('#raw-input').value.trim();
+      if (!raw.startsWith('&')) { alert('& から始まるビヘイビアを入力してください'); return; }
+      state.rawBuilderStack = [];
+      applyPickerToken(raw);
+    });
+    return;
+  }
+
+  const listByCat = {
+    alphabet: LETTERS, number: NUMBERS, symbol: SYMBOLS,
+    function: FUNCTION_KEYS, nav: NAV_KEYS, media: MEDIA_KEYS, other: OTHER_SPECIAL_KEYS,
+  };
+  const list = listByCat[cat] || [];
+  root.innerHTML = `<div class="grid">${list.map(k =>
+    `<button data-key="${k}">${k.replace(/_/g, ' ')}</button>`
+  ).join('')}</div>`;
+  root.querySelectorAll('button[data-key]').forEach(b => {
+    b.addEventListener('click', () => finish(b.dataset.key));
   });
 }
 
