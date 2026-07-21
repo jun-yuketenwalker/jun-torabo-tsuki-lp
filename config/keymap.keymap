@@ -94,7 +94,7 @@
         >;
         };
 
-        Left_hand_device {
+        Flip_Right {
             bindings = <
 &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
 &trans  &kp P  &kp O  &kp I  &kp U  &kp Y  &trans  &trans  &trans  &trans  &trans  &trans
