@@ -177,7 +177,16 @@
   }
   #picker-body input[type=text].wide { width: 220px; }
   #picker-dock.empty #picker-cats, #picker-dock.empty #picker-body { display: none; }
-  #raw-builder-cats button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  #raw-builder-cats {
+    display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--border);
+  }
+  #raw-builder-cats button {
+    font-size: 12px; padding: 6px 14px; border-radius: 6px 6px 0 0;
+    border-bottom: 2px solid transparent; background: transparent; border-color: transparent;
+  }
+  #raw-builder-cats button.active {
+    border-bottom-color: var(--accent); background: var(--bg); font-weight: 600; color: var(--accent);
+  }
   #picker-dock.empty .picker-header .current { font-style: italic; }
   #picker-dock.empty .picker-header #btn-picker-close { display: none; }
 
@@ -1353,6 +1362,20 @@ function currentLayerTokens() {
   return state.layers.find(l => l.name === state.currentLayer).tokens;
 }
 
+// Board buttons show this instead of the raw ZMK keycode name (e.g. "-"
+// instead of "MINUS") so the printed symbol is immediately obvious. Only
+// plain single keycodes are looked up here; compound RAW-builder tokens like
+// "LC(LS(TAB))" fall through to the old underscore-stripping behavior below.
+const KEYCODE_SYMBOL_DISPLAY = {
+  N1: '1', N2: '2', N3: '3', N4: '4', N5: '5', N6: '6', N7: '7', N8: '8', N9: '9', N0: '0',
+  MINUS: '-', EQUAL: '=', SLASH: '/', COMMA: ',', DOT: '.', SEMI: ';', UNDERSCORE: '_',
+  PLUS: '+', ASTRK: '*', EXCLAMATION: '!', AT: '@', HASH: '#', DOLLAR: '$', PERCENT: '%',
+  AMPS: '&', COLON: ':', LEFT_PARENTHESIS: '(', RIGHT_PARENTHESIS: ')',
+  LEFT_BRACKET: '[', RIGHT_BRACKET: ']', LEFT_BRACE: '{', RIGHT_BRACE: '}', KP_MULTIPLY: '*',
+  GRAVE: '`', TILDE: '~', BACKSLASH: '\\', PIPE: '|', CARET: '^',
+  DOUBLE_QUOTES: '"', SINGLE_QUOTE: "'", QUESTION: '?',
+};
+
 function shortLabel(token) {
   if (token === '&trans') return '▽';
   if (token === '&none') return '';
@@ -1360,7 +1383,7 @@ function shortLabel(token) {
   if (!m) return token;
   const [, behavior, rest] = m;
   switch (behavior) {
-    case 'kp': return rest.replace(/_/g, ' ');
+    case 'kp': return KEYCODE_SYMBOL_DISPLAY[rest] ?? rest.replace(/_/g, ' ');
     case 'mo': return 'MO ' + rest;
     case 'lt': { const [layer, ...kc] = rest.split(/\s+/); return 'LT' + layer + ' ' + kc.join(' '); }
     case 'to': return 'TO ' + rest;
@@ -1585,10 +1608,10 @@ const MEDIA_KEYS = ['C_VOLUME_UP','C_VOL_DN','C_AC_SCROLL_UP','C_AC_SCROLL_DOWN'
 // having to hand-type nested parens, which is exactly what broke the build
 // last time (a missing ")" in a free-typed raw token).
 const MOD_WRAPPERS = [
-  { code: 'LS', label: 'Lシフト' },     { code: 'RS', label: 'Rシフト' },
-  { code: 'LC', label: 'Lコントロール' }, { code: 'RC', label: 'Rコントロール' },
-  { code: 'LA', label: 'Lオルト' },     { code: 'RA', label: 'Rオルト' },
-  { code: 'LG', label: 'Lウィン' },     { code: 'RG', label: 'Rウィン' },
+  { code: 'LS', label: 'LSHIFT' }, { code: 'RS', label: 'RSHIFT' },
+  { code: 'LC', label: 'LCTRL' },  { code: 'RC', label: 'RCTRL' },
+  { code: 'LA', label: 'LALT' },   { code: 'RA', label: 'RALT' },
+  { code: 'LG', label: 'LGUI' },   { code: 'RG', label: 'RGUI' },
 ];
 const OTHER_SPECIAL_KEYS = SPECIAL_KEYS.filter(k => !['LCTRL','LGUI','LALT','LSHIFT','RCTRL','RGUI','RALT','RSHIFT'].includes(k));
 const RAW_BUILDER_CATS = [
@@ -1748,7 +1771,7 @@ function renderPickerBody() {
           <span>組み立て中: <code>&kp ${rawBuilderPreview(stack, stack.length ? '…' : '(未選択)')}</code></span>
           ${stack.length ? '<button id="raw-builder-clear">クリア</button>' : ''}
         </div>
-        <div class="grid" id="raw-builder-cats" style="margin-bottom:10px;">
+        <div id="raw-builder-cats" style="margin-bottom:10px;">
           ${RAW_BUILDER_CATS.map(c => `<button data-cat="${c.id}" class="${c.id === state.rawBuilderCat ? 'active' : ''}">${c.label}</button>`).join('')}
         </div>
         <div id="raw-builder-body"></div>

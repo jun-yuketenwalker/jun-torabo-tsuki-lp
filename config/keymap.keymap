@@ -29,7 +29,7 @@
 
         layer4_toggle {
             bindings = <&tog 4>;
-            key-positions = <43 44>;
+            key-positions = <44 58>;
         };
     };
 
