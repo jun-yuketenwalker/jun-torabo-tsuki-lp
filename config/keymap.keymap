@@ -65,7 +65,7 @@
 &trans  &kp Q  &kp W  &kp E  &kp R  &lt 12 T  &kp Y  &kp U  &kp I  &kp O  &kp P  &trans
 &trans  &kp A  &kp S  &kp D  &kp F  &kp G  &trans  &trans  &lt 6 H  &kp J  &kp K  &kp L  &kp MINUS  &trans
 &trans  &kp Z  &kp X  &kp C  &kp V  &kp B  &kp TAB  &kp BACKSPACE  &lt 6 N  &kp M  &kp COMMA  &kp DOT  &kp SLASH  &trans
-&trans  &kp LCTRL  &kp LGUI  &kp LALT  &kp LSHIFT  &kp SPACE  &lt 2 LANGUAGE_2  &lt 1 LANG4  &kp ENTER  &trans  &trans  &to 3  &lt 7 PRINTSCREEN  &trans
+&trans  &kp LCTRL  &kp LGUI  &kp LALT  &kp LSHIFT  &kp SPACE  &lt 2 LANGUAGE_2  &lt 1 LANGUAGE_1  &kp ENTER  &trans  &trans  &to 3  &lt 7 PRINTSCREEN  &trans
         >;
         };
 
@@ -105,7 +105,7 @@
 &trans  &kp P  &kp O  &kp I  &kp U  &kp Y  &trans  &trans  &trans  &trans  &trans  &trans
 &trans  &kp MINUS  &kp L  &kp K  &kp J  &lt 6 H  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
 &trans  &kp SLASH  &kp DOT  &kp COMMA  &kp M  &lt 6 N  &kp BACKSPACE  &trans  &trans  &trans  &trans  &trans  &trans  &trans
-&trans  &lt 7 PRINTSCREEN  &to 4  &trans  &trans  &kp ENTER  &lt 8 LANG4  &trans  &trans  &trans  &trans  &to 0  &trans  &trans
+&trans  &lt 7 PRINTSCREEN  &to 4  &trans  &trans  &kp ENTER  &lt 8 LANGUAGE_1  &trans  &trans  &trans  &trans  &to 0  &trans  &trans
         >;
         };
 
