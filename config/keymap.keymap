@@ -31,6 +31,16 @@
             bindings = <&tog 4>;
             key-positions = <44 58>;
         };
+
+        tab_combo {
+            bindings = <&kp TAB>;
+            key-positions = <13 25>;
+        };
+
+        esc_combo {
+            bindings = <&kp ESC>;
+            key-positions = <13 14>;
+        };
     };
 
     macros {
