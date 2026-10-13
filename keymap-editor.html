@@ -264,6 +264,7 @@
   <button class="tab" data-panel="panel-macro">マクロ</button>
   <button class="tab" data-panel="panel-trackball">トラックボール / スクロール速度</button>
   <button class="tab" data-panel="panel-gesture">ジェスチャー</button>
+  <button class="tab" data-panel="panel-dial">ダイヤル</button>
 </nav>
 
 <main>
@@ -286,6 +287,7 @@
   <div id="panel-macro" class="panel"></div>
   <div id="panel-trackball" class="panel"></div>
   <div id="panel-gesture" class="panel"></div>
+  <div id="panel-dial" class="panel"></div>
 
   <div id="picker-dock" class="empty">
     <div class="picker-header">
@@ -733,6 +735,112 @@ function writeGestureBlock(text, nodeLabel, layerNum, tokens, listenerRef, tick)
   return out + sep + newBlockText;
 }
 
+/* ============================================================
+ * 2d. Hires dial support (snippets/input-hires-dial)
+ *
+ * The dial's rotation is exposed as ZMK "sensor-bindings", which (unlike
+ * &kp bindings) live as a property directly on each keymap layer node --
+ * so per-layer settings are written as devicetree node-path overrides
+ * (&{/keymap/<layer name>} { sensor-bindings = ...; };) into the snippet's
+ * own overlay, never into the shared config/keymap.keymap, so a build that
+ * doesn't include this snippet (the trackpad board) is unaffected. Because
+ * the override targets a layer by its *current* devicetree node name, the
+ * whole marked block is regenerated fresh from state.layers on every save
+ * (same approach as ensureGestureLayer() uses for layer *numbers*) -- so a
+ * layer rename just naturally produces an updated reference next save. The
+ * one caveat: if keymap.keymap is ever hand-edited (renaming a layer)
+ * without going through this tool afterwards, this block's node reference
+ * would go stale until the next save here.
+ * ========================================================== */
+const DIAL_MARKER_START = '/* === keymap-editor: dial sensor-bindings (auto-generated, safe to regenerate) === */';
+const DIAL_MARKER_END = '/* === keymap-editor: end dial sensor-bindings === */';
+
+function dialDefault() {
+  return { mode: 'none', in: 1, out: 1, token1: '&kp C_VOLUME_UP', token2: '&kp C_VOLUME_DOWN' };
+}
+
+const DIAL_BEHAVIOR_BY_MODE = { scroll: 'hires_dial_scroll', hscroll: 'hires_dial_hscroll', radial: 'hires_dial_radial_controller' };
+const DIAL_MODE_BY_BEHAVIOR = { hires_dial_scroll: 'scroll', hires_dial_hscroll: 'hscroll', hires_dial_radial_controller: 'radial', hires_dial_encoder: 'encoder' };
+
+// &hires_dial_encoder's 2 cells are raw keycode defines (e.g. C_VOLUME_UP),
+// not &kp-wrapped behavior refs -- see the driver's own README example
+// (`<&hires_dial_encoder C_VOL_UP C_VOL_DN>`). The picker always returns
+// "&kp X" style tokens though, so we store that for display (shortLabel
+// etc.) and strip the "&kp " prefix only when serializing into the overlay.
+function dialTokenToRawKeycode(token) {
+  const m = token.match(/^&kp\s+(.+)$/);
+  return m ? m[1] : token.replace(/^&/, '');
+}
+
+function parseDialBindings(text) {
+  const map = new Map();
+  const block = extractMarkedBlock(text, DIAL_MARKER_START, DIAL_MARKER_END);
+  if (!block) return map;
+  const blockText = text.slice(block.start, block.end);
+  const lineRe = /&\{\/keymap\/([A-Za-z0-9_]+)\}\s*\{\s*sensor-bindings\s*=\s*<([^>]*)>;\s*\};/g;
+  let m;
+  while ((m = lineRe.exec(blockText))) {
+    const layerName = m[1];
+    const parts = m[2].trim().split(/\s+/);
+    const behavior = parts[0].replace(/^&/, '');
+    const mode = DIAL_MODE_BY_BEHAVIOR[behavior];
+    if (!mode) continue;
+    const d = dialDefault();
+    d.mode = mode;
+    if (mode === 'encoder') {
+      d.token1 = '&kp ' + (parts[1] || 'C_VOLUME_UP');
+      d.token2 = '&kp ' + (parts[2] || 'C_VOLUME_DOWN');
+    } else {
+      d.in = Number(parts[1]) || 1;
+      d.out = Number(parts[2]) || 1;
+    }
+    map.set(layerName, d);
+  }
+  return map;
+}
+
+function buildDialBindingLine(layerName, dial) {
+  if (dial.mode === 'encoder') {
+    return `&{/keymap/${layerName}} { sensor-bindings = <&hires_dial_encoder ${dialTokenToRawKeycode(dial.token1)} ${dialTokenToRawKeycode(dial.token2)}>; };`;
+  }
+  const behavior = DIAL_BEHAVIOR_BY_MODE[dial.mode];
+  if (!behavior) return null;
+  return `&{/keymap/${layerName}} { sensor-bindings = <&${behavior} ${dial.in} ${dial.out}>; };`;
+}
+
+function buildDialBlockText(layers) {
+  const lines = layers
+    .filter(l => l.dial && l.dial.mode !== 'none')
+    .map(l => buildDialBindingLine(l.name, l.dial))
+    .filter(Boolean);
+  return `${DIAL_MARKER_START}\n${lines.map(l => l + '\n').join('')}${DIAL_MARKER_END}\n`;
+}
+
+function writeDialBlock(text, layers) {
+  const newBlockText = buildDialBlockText(layers);
+  const block = extractMarkedBlock(text, DIAL_MARKER_START, DIAL_MARKER_END);
+  if (block) return text.slice(0, block.start) + newBlockText + text.slice(block.end);
+  const sep = text.endsWith('\n') ? '\n' : '\n\n';
+  return text + sep + newBlockText;
+}
+
+const DIAL_RADIAL_CONF_LINE = 'CONFIG_ZMK_HIRES_DIAL_RADIAL_CONTROLLER=y';
+
+function loadDialRadialControllerFlag(text) {
+  return text.split('\n').some(l => l.trim() === DIAL_RADIAL_CONF_LINE);
+}
+
+function writeDialRadialControllerFlag(text, enabled) {
+  const hasLine = text.split('\n').some(l => l.trim() === DIAL_RADIAL_CONF_LINE);
+  if (enabled && !hasLine) {
+    return text.endsWith('\n') ? text + DIAL_RADIAL_CONF_LINE + '\n' : text + '\n' + DIAL_RADIAL_CONF_LINE + '\n';
+  }
+  if (!enabled && hasLine) {
+    return text.split('\n').filter(l => l.trim() !== DIAL_RADIAL_CONF_LINE).join('\n');
+  }
+  return text;
+}
+
 function ensureWestModule(text, remoteName, urlBase, projectName, revision) {
   let out = text;
   const nl = out.includes('\r\n') ? '\r\n' : '\n';
@@ -761,6 +869,7 @@ const state = {
   gesture: null,            // { trackball: {tokens}, trackpad: {tokens} }
   dirty: false,
   trackball: null,         // parsed settings, see loadTrackballSettings()
+  dialRadialController: false, // CONFIG_ZMK_HIRES_DIAL_RADIAL_CONTROLLER on/off
   onPickerSelect: null,    // callback(token) for the currently open picker
 };
 
@@ -770,6 +879,8 @@ const PATHS = {
   rightOverlay: ['boards', 'shields', 'torabo_tsuki_lp', 'torabo_tsuki_lp_right.overlay'],
   leftOverlay: ['boards', 'shields', 'torabo_tsuki_lp', 'torabo_tsuki_lp_left.overlay'],
   splitListenerOverlay: ['snippets', 'input-split-listener', 'input-split-listener.overlay'],
+  dialOverlay: ['snippets', 'input-hires-dial', 'input-hires-dial.overlay'],
+  dialConf: ['snippets', 'input-hires-dial', 'input-hires-dial.conf'],
 };
 
 async function getFileHandleByPath(root, parts) {
@@ -791,6 +902,7 @@ async function openFolder() {
   const keyToPath = {
     keymap: PATHS.keymap, westYml: PATHS.westYml, rightOverlay: PATHS.rightOverlay,
     leftOverlay: PATHS.leftOverlay, splitListenerOverlay: PATHS.splitListenerOverlay,
+    dialOverlay: PATHS.dialOverlay, dialConf: PATHS.dialConf,
   };
   for (const [key, parts] of Object.entries(keyToPath)) {
     const fh = await getFileHandleByPath(dirHandle, parts);
@@ -823,6 +935,10 @@ async function openFolder() {
 
   loadTrackballSettings();
 
+  const dialMap = parseDialBindings(state.originalTexts.dialOverlay);
+  state.layers.forEach(l => { l.dial = dialMap.get(l.name) || dialDefault(); });
+  state.dialRadialController = loadDialRadialControllerFlag(state.originalTexts.dialConf);
+
   document.getElementById('status').textContent = 'フォルダ: ' + dirHandle.name;
   document.getElementById('btn-save').disabled = false;
   setDirty(false);
@@ -832,6 +948,7 @@ async function openFolder() {
   renderComboPanel();
   renderMacroPanel();
   renderGesturePanel();
+  renderDialPanel();
 }
 
 // `status = "reserved"` placeholder layers (extra1-4) have no `bindings`
@@ -981,6 +1098,15 @@ async function saveAll() {
     splitText = writeGestureBlock(splitText, 'zip_gesture_trackpad', gestureLayerIndex, state.gesture.trackpad.tokens, '&pointing_device_split_listener', state.gesture.trackpad.tick);
     state.originalTexts.splitListenerOverlay = splitText;
     await writeFile('splitListenerOverlay', splitText);
+
+    // 4. input-hires-dial.overlay / .conf (dial sensor-bindings + Radial Controller toggle)
+    let dialOverlayText = writeDialBlock(state.originalTexts.dialOverlay, state.layers);
+    state.originalTexts.dialOverlay = dialOverlayText;
+    await writeFile('dialOverlay', dialOverlayText);
+
+    let dialConfText = writeDialRadialControllerFlag(state.originalTexts.dialConf, state.dialRadialController);
+    state.originalTexts.dialConf = dialConfText;
+    await writeFile('dialConf', dialConfText);
 
     state.originalTexts.keymap = newKeymapText;
     state.layers.forEach(l => { l.originalName = l.name; });
@@ -1182,6 +1308,116 @@ function renderGesturePanel() {
       setDirty(true);
     });
   });
+}
+
+/* ============================================================
+ * 4a3. Dial editor (hires-dial-module rotation per layer)
+ * ========================================================== */
+const DIAL_MODE_LABELS = {
+  none: 'なし',
+  scroll: '上下スクロール',
+  hscroll: '左右スクロール',
+  encoder: 'エンコーダー(キー割り当て)',
+  radial: 'Radial Controller(Windows)',
+};
+
+function ensureLayerDial(layer) {
+  if (!layer.dial) layer.dial = dialDefault();
+  return layer.dial;
+}
+
+function renderDialPanel() {
+  const root = document.getElementById('panel-dial');
+  if (!root) return;
+  root.innerHTML = `
+    <div class="notice">
+      左手の高分解能ダイヤルモジュール(<a href="https://github.com/sekigon-gonnoc/hires-dial-module" target="_blank" rel="noopener">hires-dial-module</a>、
+      トラックパッドと同じコネクタを使う構成)の回転動作をレイヤーごとに設定します。保存すると
+      <code>snippets/input-hires-dial/input-hires-dial.overlay</code> の自動生成ブロックが書き換わります
+      (このsnippetを使うビルド構成だけに反映され、トラックパッド版には影響しません)。<br>
+      クリック(PUSH)は元のキースイッチ位置(44番)のマトリクスをそのまま流用しているため、各レイヤーの既存の
+      キー割り当て(TAB/BACKSPACE/ESCなど)がそのままクリックとして働きます。ここでは設定できません。
+    </div>
+    <div class="tb-card">
+      <label><input type="checkbox" id="dial-radial-enable" ${state.dialRadialController ? 'checked' : ''}>
+        Windows Radial Controllerを有効にする(<code>CONFIG_ZMK_HIRES_DIAL_RADIAL_CONTROLLER</code>。
+        「Radial Controller」モードを使うレイヤーがある場合に必要。再ペアリングが必要になる場合があります)</label>
+    </div>
+    <div id="dial-layer-list"></div>
+  `;
+  document.getElementById('dial-radial-enable').addEventListener('change', e => {
+    state.dialRadialController = e.target.checked;
+    setDirty(true);
+  });
+
+  const list = document.getElementById('dial-layer-list');
+  state.layers.forEach((layer, idx) => {
+    const dial = ensureLayerDial(layer);
+    const card = document.createElement('div');
+    card.className = 'tb-card';
+    card.innerHTML = `
+      <h3>${layer.name}</h3>
+      <div class="row" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <label>回転の動作:</label>
+        <select class="dial-mode-select">
+          ${Object.entries(DIAL_MODE_LABELS).map(([v, label]) =>
+            `<option value="${v}" ${dial.mode === v ? 'selected' : ''}>${label}</option>`).join('')}
+        </select>
+      </div>
+      <div class="dial-mode-body"></div>
+    `;
+    list.appendChild(card);
+    const body = card.querySelector('.dial-mode-body');
+    renderDialModeBody(body, dial);
+    card.querySelector('.dial-mode-select').addEventListener('change', e => {
+      dial.mode = e.target.value;
+      setDirty(true);
+      renderDialModeBody(body, dial);
+    });
+  });
+}
+
+function renderDialModeBody(body, dial) {
+  if (dial.mode === 'scroll' || dial.mode === 'hscroll' || dial.mode === 'radial') {
+    body.innerHTML = `
+      <label style="font-size:12px;">入力カウント:
+        <input type="number" class="dial-in" min="1" max="999" value="${dial.in}" style="width:60px;">
+      </label>
+      <label style="font-size:12px;margin-left:8px;">出力カウント:
+        <input type="number" class="dial-out" min="1" max="999" value="${dial.out}" style="width:60px;">
+      </label>
+      <span style="font-size:11px;color:var(--muted);margin-left:8px;">
+        物理${dial.in}カウントの回転をWHEEL値${dial.out}に変換(既定 1:1。数字を大きくするほど鈍くなります)
+      </span>
+    `;
+    body.querySelector('.dial-in').addEventListener('change', e => {
+      dial.in = Math.max(1, Math.round(Number(e.target.value)) || 1);
+      setDirty(true);
+    });
+    body.querySelector('.dial-out').addEventListener('change', e => {
+      dial.out = Math.max(1, Math.round(Number(e.target.value)) || 1);
+      setDirty(true);
+    });
+  } else if (dial.mode === 'encoder') {
+    body.innerHTML = `
+      <button class="dial-token-btn" data-which="1">時計回り: ${shortLabel(dial.token1)}</button>
+      <button class="dial-token-btn" data-which="2">反時計回り: ${shortLabel(dial.token2)}</button>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;">通常のキー(ベーシック/ファンクション/メディア等)を選んでください。</div>
+    `;
+    body.querySelectorAll('.dial-token-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const which = btn.dataset.which;
+        const current = which === '1' ? dial.token1 : dial.token2;
+        openPicker(current, (token) => {
+          if (which === '1') dial.token1 = token; else dial.token2 = token;
+          setDirty(true);
+          renderDialModeBody(body, dial);
+        });
+      });
+    });
+  } else {
+    body.innerHTML = `<span style="font-size:12px;color:var(--muted);">このレイヤーではダイヤルを回しても何も起きません。</span>`;
+  }
 }
 
 /* ============================================================
@@ -1466,6 +1702,7 @@ function startRenameLayer(layer, buttonEl) {
     }
     renderLayerTabs();
     renderBoard();
+    renderDialPanel();
   };
   input.addEventListener('blur', commit);
   input.addEventListener('keydown', e => {
@@ -1483,6 +1720,7 @@ function addLayer() {
   setDirty(true);
   renderLayerTabs();
   renderBoard();
+  renderDialPanel();
 }
 
 function computeBoardMetrics() {

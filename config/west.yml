@@ -26,6 +26,8 @@ manifest:
       revision: torabo-tsuki
     - name: zmk-driver-iqs7211e
       remote: sekigon-gonnoc
+    - name: zmk-driver-hires-dial
+      remote: sekigon-gonnoc
     - name: zmk-feature-cdc-acm-bootloader-trigger
       remote: sekigon-gonnoc
       revision: v0.2
