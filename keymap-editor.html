@@ -1326,6 +1326,15 @@ function ensureLayerDial(layer) {
   return layer.dial;
 }
 
+// PUSH gets its own direct-GPIO kscan key layered onto *canonical position
+// 0* (see the long comment in input-hires-dial.overlay for why: it's the
+// one position guaranteed to have no real switch on this board, in either
+// variant, so reusing it needs no matrix-transform/physical-layout/
+// keymap.keymap position-count changes). Position 0 is part of the "top
+// row" the board view hides entirely (it's not a real key), so there's no
+// way to click it on the board -- this is its only editable surface.
+const DIAL_PUSH_POSITION = 0;
+
 function renderDialPanel() {
   const root = document.getElementById('panel-dial');
   if (!root) return;
@@ -1335,8 +1344,9 @@ function renderDialPanel() {
       トラックパッドと同じコネクタを使う構成)の回転動作をレイヤーごとに設定します。保存すると
       <code>snippets/input-hires-dial/input-hires-dial.overlay</code> の自動生成ブロックが書き換わります
       (このsnippetを使うビルド構成だけに反映され、トラックパッド版には影響しません)。<br>
-      クリック(PUSH)は元のキースイッチ位置(44番)のマトリクスをそのまま流用しているため、各レイヤーの既存の
-      キー割り当て(TAB/BACKSPACE/ESCなど)がそのままクリックとして働きます。ここでは設定できません。
+      クリック(PUSH)はダイヤル自身の専用GPIO線なので、既存の物理キーとは別の新しいキー位置として実装しています
+      (このボードに元々存在しない「位置0」に重ねているので、トラックパッド版の見た目・動作には影響しません)。
+      下の各レイヤーの「クリック」欄で割り当てを変更できます。
     </div>
     <div class="tb-card">
       <label><input type="checkbox" id="dial-radial-enable" ${state.dialRadialController ? 'checked' : ''}>
@@ -1365,6 +1375,10 @@ function renderDialPanel() {
         </select>
       </div>
       <div class="dial-mode-body"></div>
+      <div class="row" style="margin-top:8px;">
+        <label style="font-size:12px;">クリック(PUSH):</label>
+        <button class="dial-push-btn">${shortLabel(layer.tokens[DIAL_PUSH_POSITION])}</button>
+      </div>
     `;
     list.appendChild(card);
     const body = card.querySelector('.dial-mode-body');
@@ -1373,6 +1387,14 @@ function renderDialPanel() {
       dial.mode = e.target.value;
       setDirty(true);
       renderDialModeBody(body, dial);
+    });
+    const pushBtn = card.querySelector('.dial-push-btn');
+    pushBtn.addEventListener('click', () => {
+      openPicker(layer.tokens[DIAL_PUSH_POSITION], (token) => {
+        layer.tokens[DIAL_PUSH_POSITION] = token;
+        setDirty(true);
+        pushBtn.textContent = shortLabel(token);
+      });
     });
   });
 }
@@ -1653,9 +1675,13 @@ function renderLayerTabs() {
   state.layers.forEach(l => {
     const num = layerDisplayNumber(l, numberInfo, newLayerIndex);
     if (!l.originalName || !numberInfo.map.has(l.originalName)) newLayerIndex++;
+    const wrap = document.createElement('div');
+    wrap.style.display = 'flex';
+    wrap.style.alignItems = 'stretch';
     const b = document.createElement('button');
     b.textContent = `${num}: ${l.name}`;
     b.className = l.name === state.currentLayer ? 'active' : '';
+    b.style.flex = '1';
     b.title = 'ダブルクリックで名前を変更';
     b.addEventListener('click', () => {
       if (layerClickTracker.name === l.name && layerClickTracker.timer) {
@@ -1671,12 +1697,67 @@ function renderLayerTabs() {
       renderLayerTabs();
       renderBoard();
     });
-    root.appendChild(b);
+    const delBtn = document.createElement('button');
+    delBtn.textContent = '×';
+    delBtn.title = 'このレイヤーを削除';
+    delBtn.className = 'btn-danger';
+    delBtn.style.flex = '0 0 auto';
+    delBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteLayer(l, num); });
+    wrap.appendChild(b);
+    wrap.appendChild(delBtn);
+    root.appendChild(wrap);
   });
   const addBtn = document.createElement('button');
   addBtn.textContent = '+ レイヤーを追加';
   addBtn.addEventListener('click', addLayer);
   root.appendChild(addBtn);
+}
+
+// &mo/&lt/&tog/&to/&sl/&sk all take a layer *number* as their first/only
+// numeric arg, and that number is a plain compiled index -- unlike the
+// "Gesture"-style layer lookup by name, nothing re-resolves these when a
+// layer is removed. Deleting a layer shifts every later layer's compiled
+// index down by one, silently repointing any of these left unreviewed.
+const LAYER_REF_RE = /^&(mo|lt|tog|to|sl|sk)\s+(\d+)/;
+
+function findLayerNumberReferences(minIndex) {
+  const hits = [];
+  state.layers.forEach(l => {
+    l.tokens.forEach((tok, pos) => {
+      const m = tok.match(LAYER_REF_RE);
+      if (m && Number(m[2]) >= minIndex) hits.push(`レイヤー「${l.name}」位置${pos}: ${tok}`);
+    });
+  });
+  state.combos.forEach(c => {
+    const m = (c.binding || '').match(LAYER_REF_RE);
+    if (m && Number(m[2]) >= minIndex) hits.push(`コンボ「${c.name}」: ${c.binding}`);
+  });
+  return hits;
+}
+
+function deleteLayer(layer, displayNum) {
+  if (state.layers.length <= 1) { alert('レイヤーは最低1つ必要です。'); return; }
+  const refs = findLayerNumberReferences(displayNum);
+  let msg = `レイヤー「${layer.name}」(現在のレイヤー番号 ${displayNum})を削除します。\n\n` +
+    `ZMKのレイヤー番号は宣言順の連番なので、削除するとこれより後ろのレイヤー番号が1つずつ詰まり、` +
+    `番号${displayNum}以上を指定している &mo/&lt/&tog/&to/&sl/&sk は意図しないレイヤーを指すことになります。`;
+  if (refs.length) {
+    msg += `\n\n要確認(番号${displayNum}以上を参照):\n` + refs.join('\n');
+  } else {
+    msg += '\n\n(キーマップ/コンボの中にはそれらしい参照は見つかりませんでした)';
+  }
+  msg += '\n\n削除しますか?';
+  if (!confirm(msg)) return;
+
+  const idx = state.layers.indexOf(layer);
+  state.layers.splice(idx, 1);
+  if (state.currentLayer === layer.name) {
+    state.currentLayer = state.layers[Math.max(0, idx - 1)].name;
+  }
+  setDirty(true);
+  renderLayerTabs();
+  renderBoard();
+  renderDialPanel();
 }
 
 function startRenameLayer(layer, buttonEl) {
@@ -1834,7 +1915,7 @@ function renderBoard() {
 const LETTERS = 'A B C D E F G H I J K L M N O P Q R S T U V W X Y Z'.split(' ');
 const NUMBERS = ['N1','N2','N3','N4','N5','N6','N7','N8','N9','N0'];
 const SYMBOLS = ['MINUS','EQUAL','SLASH','COMMA','DOT','SEMI','UNDERSCORE','PLUS','ASTRK','EXCLAMATION','AT','HASH','DOLLAR','PERCENT','AMPS','COLON','LEFT_PARENTHESIS','RIGHT_PARENTHESIS','LEFT_BRACKET','RIGHT_BRACKET','LEFT_BRACE','RIGHT_BRACE','KP_MULTIPLY'];
-const FUNCTION_KEYS = Array.from({length:12}, (_, i) => 'F' + (i+1));
+const FUNCTION_KEYS = Array.from({length:24}, (_, i) => 'F' + (i+1));
 const SPECIAL_KEYS = ['LCTRL','LGUI','LALT','LSHIFT','RCTRL','RGUI','RALT','RSHIFT','TAB','BACKSPACE','ENTER','SPACE','ESC','DELETE','PRINTSCREEN','LANGUAGE_2','LANG4'];
 const NAV_KEYS = ['UP_ARROW','DOWN','LEFT','RIGHT_ARROW','LEFT_ARROW','HOME','END'];
 const MEDIA_KEYS = ['C_VOLUME_UP','C_VOL_DN','C_AC_SCROLL_UP','C_AC_SCROLL_DOWN'];
@@ -1935,9 +2016,22 @@ function openPicker(current, onSelect) {
   renderPickerBody();
 }
 
+// SYMBOLタブ用: キーコード名(覚えていないと何の記号か分からない)ではなく
+// 実際の記号そのものをボタンに表示する。ここに無い名前は元通り名前表示にフォールバック。
+const SYMBOL_DISPLAY = {
+  MINUS: '-', EQUAL: '=', SLASH: '/', COMMA: ',', DOT: '.', SEMI: ';',
+  UNDERSCORE: '_', PLUS: '+', ASTRK: '*', KP_MULTIPLY: '*(テンキー)',
+  EXCLAMATION: '!', AT: '@', HASH: '#', DOLLAR: '$', PERCENT: '%',
+  AMPS: '&', COLON: ':', LEFT_PARENTHESIS: '(', RIGHT_PARENTHESIS: ')',
+  LEFT_BRACKET: '[', RIGHT_BRACKET: ']', LEFT_BRACE: '{', RIGHT_BRACE: '}',
+  APOSTROPHE: "'", SINGLE_QUOTE: "'", GRAVE: '`', TILDE: '~',
+  BACKSLASH: '\\', PIPE: '|', LESS_THAN: '<', GREATER_THAN: '>',
+  QUESTION: '?', CARET: '^', DOUBLE_QUOTES: '"',
+};
+
 function renderPickerBody() {
   const body = document.getElementById('picker-body');
-  const kpGrid = (list) => `<div class="grid">${list.map(k => `<button data-token="&kp ${k}">${k.replace(/_/g,' ')}</button>`).join('')}</div>`;
+  const kpGrid = (list) => `<div class="grid">${list.map(k => `<button data-token="&kp ${k}">${SYMBOL_DISPLAY[k] || k.replace(/_/g,' ')}</button>`).join('')}</div>`;
 
   switch (state.pickerActiveTab) {
     case 'basic':
@@ -1981,7 +2075,8 @@ function renderPickerBody() {
           <span>レイヤー番号:</span>
           <input type="number" id="layer-num" min="0" max="9" value="1">
           <button id="btn-mo">&mo (押している間)</button>
-          <button id="btn-to">&to (切替)</button>
+          <button id="btn-tog">&tog (トグル、同じキーで戻る)</button>
+          <button id="btn-to">&to (切替、戻るキーなし)</button>
           <button id="btn-sk">&sk (ワンショット)</button>
           <button id="btn-sl">&sl (ワンショットレイヤー)</button>
         </div>
@@ -1992,6 +2087,7 @@ function renderPickerBody() {
         </div>
       `;
       body.querySelector('#btn-mo').addEventListener('click', () => applyPickerToken(`&mo ${body.querySelector('#layer-num').value}`));
+      body.querySelector('#btn-tog').addEventListener('click', () => applyPickerToken(`&tog ${body.querySelector('#layer-num').value}`));
       body.querySelector('#btn-to').addEventListener('click', () => applyPickerToken(`&to ${body.querySelector('#layer-num').value}`));
       body.querySelector('#btn-sk').addEventListener('click', () => applyPickerToken(`&sk ${body.querySelector('#layer-num').value}`));
       body.querySelector('#btn-sl').addEventListener('click', () => applyPickerToken(`&sl ${body.querySelector('#layer-num').value}`));
