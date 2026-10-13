@@ -62,8 +62,16 @@
  * right pin number.
  */
 
+/* TEMPORARY for hardware debugging: layer_0 sends A/B instead of whatever
+ * it's configured to in the editor, since "does rotating type a letter in
+ * a text box" is the most unambiguous way to confirm the sensor is talking
+ * to the MCU at all -- far easier to eyeball than a silent volume change or
+ * an app-specific shortcut. Restore via the keymap-editor.html Dial tab
+ * (it still has the real settings for every layer; this override doesn't
+ * touch that state) once rotation is confirmed working.
+ */
 /* === keymap-editor: dial sensor-bindings (auto-generated, safe to regenerate) === */
-&{/keymap/layer_0} { sensor-bindings = <&hires_dial_scroll 1 1>; };
+&{/keymap/layer_0} { sensor-bindings = <&hires_dial_encoder A B>; };
 &{/keymap/Flip_Right} { sensor-bindings = <&hires_dial_encoder C_VOLUME_UP C_VOLUME_DOWN>; };
 &{/keymap/CLIP_STUDIO_1} { sensor-bindings = <&hires_dial_encoder APOSTROPHE MINUS>; };
 &{/keymap/CLIP_STUDIO_2} { sensor-bindings = <&hires_dial_encoder RIGHT_BRACKET LEFT_BRACKET>; };
