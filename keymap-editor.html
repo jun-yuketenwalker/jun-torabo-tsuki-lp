@@ -1326,14 +1326,16 @@ function ensureLayerDial(layer) {
   return layer.dial;
 }
 
-// PUSH gets its own direct-GPIO kscan key layered onto *canonical position
-// 0* (see the long comment in input-hires-dial.overlay for why: it's the
-// one position guaranteed to have no real switch on this board, in either
-// variant, so reusing it needs no matrix-transform/physical-layout/
-// keymap.keymap position-count changes). Position 0 is part of the "top
-// row" the board view hides entirely (it's not a real key), so there's no
-// way to click it on the board -- this is its only editable surface.
+// PUSH's GPIO-direct kscan attempt (layered onto canonical position 0) was
+// reverted: the pin it used (gpio0 8) turned out to likely be the sensor's
+// power-enable line, and claiming it for both purposes at once probably
+// caused the first test build's total non-response. Nothing currently
+// reads position 0 in firmware, so the button below is disabled until
+// PUSH's real GPIO is found and input-hires-dial.overlay wires it up again
+// -- kept visible (rather than removed) so the mode/position choice carries
+// over once that happens.
 const DIAL_PUSH_POSITION = 0;
+const DIAL_PUSH_IMPLEMENTED = false;
 
 function renderDialPanel() {
   const root = document.getElementById('panel-dial');
@@ -1344,9 +1346,9 @@ function renderDialPanel() {
       トラックパッドと同じコネクタを使う構成)の回転動作をレイヤーごとに設定します。保存すると
       <code>snippets/input-hires-dial/input-hires-dial.overlay</code> の自動生成ブロックが書き換わります
       (このsnippetを使うビルド構成だけに反映され、トラックパッド版には影響しません)。<br>
-      クリック(PUSH)はダイヤル自身の専用GPIO線なので、既存の物理キーとは別の新しいキー位置として実装しています
-      (このボードに元々存在しない「位置0」に重ねているので、トラックパッド版の見た目・動作には影響しません)。
-      下の各レイヤーの「クリック」欄で割り当てを変更できます。
+      クリック(PUSH)は現在ファームウェア未実装です(実機テストで無反応だったため、電源線との競合を疑い一旦
+      取り下げました)。下の「クリック」欄はグレーアウトしていますが、設定自体は保持されるので、配線が分かって
+      実装し直した際にそのまま使えます。
     </div>
     <div class="tb-card">
       <label><input type="checkbox" id="dial-radial-enable" ${state.dialRadialController ? 'checked' : ''}>
@@ -1377,7 +1379,7 @@ function renderDialPanel() {
       <div class="dial-mode-body"></div>
       <div class="row" style="margin-top:8px;">
         <label style="font-size:12px;">クリック(PUSH):</label>
-        <button class="dial-push-btn">${shortLabel(layer.tokens[DIAL_PUSH_POSITION])}</button>
+        <button class="dial-push-btn" ${DIAL_PUSH_IMPLEMENTED ? '' : 'disabled title="未実装(配線が分かったら実装し直します)"'}>${shortLabel(layer.tokens[DIAL_PUSH_POSITION])}</button>
       </div>
     `;
     list.appendChild(card);
@@ -1388,14 +1390,16 @@ function renderDialPanel() {
       setDirty(true);
       renderDialModeBody(body, dial);
     });
-    const pushBtn = card.querySelector('.dial-push-btn');
-    pushBtn.addEventListener('click', () => {
-      openPicker(layer.tokens[DIAL_PUSH_POSITION], (token) => {
-        layer.tokens[DIAL_PUSH_POSITION] = token;
-        setDirty(true);
-        pushBtn.textContent = shortLabel(token);
+    if (DIAL_PUSH_IMPLEMENTED) {
+      const pushBtn = card.querySelector('.dial-push-btn');
+      pushBtn.addEventListener('click', () => {
+        openPicker(layer.tokens[DIAL_PUSH_POSITION], (token) => {
+          layer.tokens[DIAL_PUSH_POSITION] = token;
+          setDirty(true);
+          pushBtn.textContent = shortLabel(token);
+        });
       });
-    });
+    }
   });
 }
 

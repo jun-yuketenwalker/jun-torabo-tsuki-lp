@@ -5,9 +5,18 @@
  * snippet uses for the IQS7211E (see
  * snippets/input-trackpad-mini/input-trackpad-mini.overlay) -- the dial
  * module plugs into that same header instead of a new one. motion-gpios
- * reuses the old irq-gpios pin (gpio0 20). gpio0 8 (the trackpad's
- * power-gpios pin) is NOT reused as a sensor property here -- see the note
- * on the hires_dial node below, and the PUSH note further down.
+ * reuses the old irq-gpios pin (gpio0 20).
+ *
+ * 2026-xx-xx: restored power-gpios on gpio0 8. First test build had zero
+ * reaction from the dial at all (no rotation, no click) despite normal
+ * typing/trackball working fine, which pointed at the sensor chip never
+ * actually powering on rather than a wiring/position mistake specifically
+ * in PUSH's path. gpio0 8 is very plausibly a power-enable line for
+ * whichever sensor chip sits on this connector (trackpad or dial), not a
+ * per-chip-specific signal -- restoring it is the more likely fix for
+ * rotation. This also means gpio0 8 is NOT free for PUSH's kscan (see the
+ * reverted block that used to sit below); PUSH's real GPIO is still
+ * unidentified.
  */
 &i2c0 {
     status = "okay";
@@ -22,16 +31,8 @@
         compatible = "sekigon,hires-dial";
         reg = <0x75>;
         motion-gpios = <&gpio0 20 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+        power-gpios = <&gpio0 8 (GPIO_ACTIVE_HIGH | NRF_GPIO_DRIVE_H1)>;
         counts-per-revolution = <1275>;
-        // NOT power-gpios on gpio0 8 here: the dial module's 6 wires are
-        // VCC/MOTION/PUSH/SCL/SDA/GND (no separate power-enable line per its
-        // own README), so whatever the old trackpad used gpio0 8 for is, on
-        // this module, almost certainly the PUSH line instead -- an INPUT,
-        // not the OUTPUT this driver's power-gpios property would configure
-        // it as. This sensor driver has no push handling at all (nothing in
-        // its source reads a push line), so PUSH still needs to be wired up
-        // as its own keyboard key (see the note below) rather than as a
-        // property of this node.
     };
 };
 
@@ -48,53 +49,18 @@
 &hires_dial_hscroll { sensor = <&hires_dial>; };
 &hires_dial_radial_controller { sensor = <&hires_dial>; };
 
-/* PUSH is NOT wired to the vacated key-switch socket's row/col matrix pair --
- * the module mounts in that hole only for mechanical fixation (any switch
- * socket the 6-pin cable can reach would do), and PUSH travels over that
- * same 6-pin connector as its own dedicated line (gpio0 8, going by the
- * trackpad's pinout). It needs its own direct-GPIO kscan key, using the same
- * zmk,kscan-composite pattern this repo already has a worked (if untested
- * here) example of in snippets/kscan-4-direction-switch/.
- *
- * Rather than adding a brand new keymap position -- which would make this
- * build's canonical position count differ from the trackpad board's, and
- * config/keymap.keymap (shared by both) can't have a different length per
- * build -- PUSH is layered onto *canonical position 0*: row0/col0 in
- * size_l_transform (boards/shields/torabo_tsuki_lp/torabo_tsuki_lp.dtsi),
- * the first cell of the "top row" this board's physical layout doesn't
- * actually have a switch for (every layer's bindings already show position
- * 0 as permanently &trans -- see the keymap-editor's own board rendering
- * note). kscan_composite just forwards whichever child's event arrives at a
- * given combined (row,col) cell with no collision handling, and the real
- * matrix (kscan0) never fires at (0,0) since nothing is wired there, so
- * layering kscan_push on top of it at offset (0,0) is safe: only the dial's
- * click can ever produce that event. The trackpad board's build never
- * touches kscan_dial/chosen below, so it's completely unaffected.
+/* PUSH wiring attempt reverted (2026-xx-xx): it was placed on gpio0 8 via a
+ * zmk,kscan-composite layered onto canonical position 0, but gpio0 8 turned
+ * out to likely be the sensor's power-enable line instead (see the note on
+ * the hires_dial node above) -- claiming it for both an output (power) and
+ * an input (push) at once is a real conflict, and was probably why the
+ * first test build got zero reaction from the dial at all, not just from
+ * PUSH. Removed until PUSH's actual GPIO is identified. Position 0 is still
+ * the intended landing spot once it is (see the keymap-editor.html comment
+ * by DIAL_PUSH_POSITION for why that position is safe to reuse) -- the
+ * kscan-composite approach itself should still be fine, it just needs the
+ * right pin number.
  */
-/ {
-    chosen {
-        zmk,kscan = &kscan_dial;
-    };
-
-    kscan_push: kscan_push {
-        compatible = "zmk,kscan-gpio-direct";
-        input-gpios = <&gpio0 8 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
-    };
-
-    kscan_dial: kscan_dial {
-        compatible = "zmk,kscan-composite";
-        rows = <5>;
-        columns = <14>;
-
-        matrix {
-            kscan = <&kscan0>;
-        };
-
-        push {
-            kscan = <&kscan_push>;
-        };
-    };
-};
 
 /* === keymap-editor: dial sensor-bindings (auto-generated, safe to regenerate) === */
 &{/keymap/layer_0} { sensor-bindings = <&hires_dial_scroll 1 1>; };
