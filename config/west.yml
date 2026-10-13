@@ -26,8 +26,13 @@ manifest:
       revision: torabo-tsuki
     - name: zmk-driver-iqs7211e
       remote: sekigon-gonnoc
-    - name: zmk-driver-hires-dial
-      remote: sekigon-gonnoc
+    # TEMPORARILY removed for a diagnostic test (2026-xx-xx): trackpad test-fit
+    # on board 2 worked with an old firmware build but not with the latest
+    # one, even though no commit since then touches the trackpad's own
+    # devicetree chain directly. This module is the one shared-everywhere
+    # change that's left as a suspect. Re-add once ruled in/out.
+    # - name: zmk-driver-hires-dial
+    #   remote: sekigon-gonnoc
     - name: zmk-feature-cdc-acm-bootloader-trigger
       remote: sekigon-gonnoc
       revision: v0.2
