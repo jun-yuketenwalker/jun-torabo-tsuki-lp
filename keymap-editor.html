@@ -1335,7 +1335,7 @@ function ensureLayerDial(layer) {
 // -- kept visible (rather than removed) so the mode/position choice carries
 // over once that happens.
 const DIAL_PUSH_POSITION = 0;
-const DIAL_PUSH_IMPLEMENTED = false;
+const DIAL_PUSH_IMPLEMENTED = true;
 
 function renderDialPanel() {
   const root = document.getElementById('panel-dial');
@@ -1346,9 +1346,8 @@ function renderDialPanel() {
       トラックパッドと同じコネクタを使う構成)の回転動作をレイヤーごとに設定します。保存すると
       <code>snippets/input-hires-dial/input-hires-dial.overlay</code> の自動生成ブロックが書き換わります
       (このsnippetを使うビルド構成だけに反映され、トラックパッド版には影響しません)。<br>
-      クリック(PUSH)は現在ファームウェア未実装です(実機テストで無反応だったため、電源線との競合を疑い一旦
-      取り下げました)。下の「クリック」欄はグレーアウトしていますが、設定自体は保持されるので、配線が分かって
-      実装し直した際にそのまま使えます。
+      クリック(PUSH)は本家リポジトリの参考コード(gpio0 19)を元に再実装しました(位置0に重ねる方式は変更
+      していません)。実機未確認なので、下の「クリック」欄で設定して試してみてください。
     </div>
     <div class="tb-card">
       <label><input type="checkbox" id="dial-radial-enable" ${state.dialRadialController ? 'checked' : ''}>

@@ -7,16 +7,16 @@
  * module plugs into that same header instead of a new one. motion-gpios
  * reuses the old irq-gpios pin (gpio0 20).
  *
- * 2026-xx-xx: restored power-gpios on gpio0 8. First test build had zero
- * reaction from the dial at all (no rotation, no click) despite normal
- * typing/trackball working fine, which pointed at the sensor chip never
- * actually powering on rather than a wiring/position mistake specifically
- * in PUSH's path. gpio0 8 is very plausibly a power-enable line for
- * whichever sensor chip sits on this connector (trackpad or dial), not a
- * per-chip-specific signal -- restoring it is the more likely fix for
- * rotation. This also means gpio0 8 is NOT free for PUSH's kscan (see the
- * reverted block that used to sit below); PUSH's real GPIO is still
- * unidentified.
+ * 2026-xx-xx: upstream (sekigon-gonnoc/zmk-keyboard-torabo-tsuki-lp commit
+ * 46ea7ca, "hires-dial用のスニペットを追加(動作未確認)" -- explicitly marked
+ * unverified by the author) has their own hires-dial snippet, not yet
+ * merged into this fork. Pulled the hires_dial node properties from it
+ * (res-cpi/motion-read-interval-ms/sleep1-enable/sleep2-enable were
+ * missing here) and reverted power-gpios back to ACTIVE_HIGH to match --
+ * flipping it to ACTIVE_LOW as a test made no difference either, so it's
+ * back to the documented value. Crucially, upstream's version puts PUSH on
+ * gpio0 19, not gpio0 8 -- gpio0 8 really is power-gpios, confirmed by
+ * upstream using the exact same pin for the exact same purpose.
  */
 &i2c0 {
     status = "okay";
@@ -30,13 +30,13 @@
         status = "okay";
         compatible = "sekigon,hires-dial";
         reg = <0x75>;
-        motion-gpios = <&gpio0 20 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
-        // Flipped to ACTIVE_LOW as a test (2026-xx-xx): ACTIVE_HIGH made no
-        // observable difference vs. not having power-gpios at all, so the
-        // polarity assumption (copied from the trackpad's config) may be
-        // backwards for this chip/circuit.
-        power-gpios = <&gpio0 8 (GPIO_ACTIVE_LOW | NRF_GPIO_DRIVE_H1)>;
+        res-cpi = <1275>;
         counts-per-revolution = <1275>;
+        motion-read-interval-ms = <8>;
+        motion-gpios = <&gpio0 20 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+        power-gpios = <&gpio0 8 (GPIO_ACTIVE_HIGH | NRF_GPIO_DRIVE_H1)>;
+        sleep1-enable;
+        sleep2-enable;
     };
 };
 
@@ -53,18 +53,40 @@
 &hires_dial_hscroll { sensor = <&hires_dial>; };
 &hires_dial_radial_controller { sensor = <&hires_dial>; };
 
-/* PUSH wiring attempt reverted (2026-xx-xx): it was placed on gpio0 8 via a
- * zmk,kscan-composite layered onto canonical position 0, but gpio0 8 turned
- * out to likely be the sensor's power-enable line instead (see the note on
- * the hires_dial node above) -- claiming it for both an output (power) and
- * an input (push) at once is a real conflict, and was probably why the
- * first test build got zero reaction from the dial at all, not just from
- * PUSH. Removed until PUSH's actual GPIO is identified. Position 0 is still
- * the intended landing spot once it is (see the keymap-editor.html comment
- * by DIAL_PUSH_POSITION for why that position is safe to reuse) -- the
- * kscan-composite approach itself should still be fine, it just needs the
- * right pin number.
+/* PUSH, re-added with the pin from upstream's reference code: gpio0 19
+ * (not gpio0 8, which is confirmed power-gpios above). Same approach as
+ * before -- a 1-key zmk,kscan-gpio-direct layered via zmk,kscan-composite
+ * onto canonical position 0 (the always-&trans "top row" cell this board
+ * has no real switch for), rather than upstream's own row-6 matrix
+ * extension, which needs a matching physical_layout key that upstream's
+ * commit never actually added (see the long comment this replaced, and the
+ * keymap-editor.html comment by DIAL_PUSH_POSITION for why position 0 is
+ * safe to reuse without changing config/keymap.keymap's length).
  */
+/ {
+    chosen {
+        zmk,kscan = &kscan_dial;
+    };
+
+    kscan_push: kscan_push {
+        compatible = "zmk,kscan-gpio-direct";
+        input-gpios = <&gpio0 19 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+    };
+
+    kscan_dial: kscan_dial {
+        compatible = "zmk,kscan-composite";
+        rows = <5>;
+        columns = <14>;
+
+        matrix {
+            kscan = <&kscan0>;
+        };
+
+        push {
+            kscan = <&kscan_push>;
+        };
+    };
+};
 
 /* TEMPORARY for hardware debugging: layer_0 sends A/B instead of whatever
  * it's configured to in the editor, since "does rotating type a letter in
