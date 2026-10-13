@@ -26,11 +26,14 @@ manifest:
       revision: torabo-tsuki
     - name: zmk-driver-iqs7211e
       remote: sekigon-gonnoc
-    # TEMPORARILY removed for a diagnostic test (2026-xx-xx): trackpad test-fit
-    # on board 2 worked with an old firmware build but not with the latest
-    # one, even though no commit since then touches the trackpad's own
-    # devicetree chain directly. This module is the one shared-everywhere
-    # change that's left as a suspect. Re-add once ruled in/out.
+    # Confirmed by a hardware test-fit (2026-xx-xx) that adding this project
+    # here breaks the unrelated trackpad (input-trackpad-mini) build -- an
+    # old firmware build worked, a fresh one with this line added didn't,
+    # and removing it again restored the trackpad. Root cause in west's
+    # workspace resolution not identified. Worked around by vendoring the
+    # driver's source directly into this repo instead (src/hires_dial.c,
+    # src/behaviors/, include/zmk/hires_dial/, dts/) -- see CMakeLists.txt
+    # and zephyr/module.yml. Do not re-add this project.
     # - name: zmk-driver-hires-dial
     #   remote: sekigon-gonnoc
     - name: zmk-feature-cdc-acm-bootloader-trigger
