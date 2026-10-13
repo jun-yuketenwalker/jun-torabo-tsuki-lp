@@ -97,6 +97,9 @@
 };
 
 /* === keymap-editor: dial sensor-bindings (auto-generated, safe to regenerate) === */
-&{/keymap/layer_0} { sensor-bindings = <&hires_dial_encoder C_VOLUME_UP C_VOLUME_DOWN>; };
+&{/keymap/layer_0} { sensor-bindings = <&hires_dial_scroll 1 1>; };
+&{/keymap/Flip_Right} { sensor-bindings = <&hires_dial_encoder C_VOLUME_UP C_VOLUME_DOWN>; };
 &{/keymap/CLIP_STUDIO_1} { sensor-bindings = <&hires_dial_encoder APOSTROPHE MINUS>; };
+&{/keymap/CLIP_STUDIO_2} { sensor-bindings = <&hires_dial_encoder RIGHT_BRACKET LEFT_BRACKET>; };
+&{/keymap/CLIP_STUDIO_3} { sensor-bindings = <&hires_dial_encoder LA(LEFT_PARENTHESIS) LA(RIGHT_BRACKET)>; };
 /* === keymap-editor: end dial sensor-bindings === */

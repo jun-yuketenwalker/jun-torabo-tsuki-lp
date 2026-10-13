@@ -29,7 +29,7 @@
 
         layer4_toggle {
             bindings = <&tog 4>;
-            key-positions = <57 58>;
+            key-positions = <26 27 28>;
         };
 
         tab_combo {
@@ -42,14 +42,19 @@
             key-positions = <13 14>;
         };
 
-        layer13_toggle {
-            bindings = <&tog 13>;
+        layer13_mo {
+            bindings = <&mo 13>;
             key-positions = <17 29>;
         };
 
-        layer14_toggle {
-            bindings = <&tog 14>;
+        layer14_mo {
+            bindings = <&mo 14>;
             key-positions = <29 43>;
+        };
+
+        layer15_mo {
+            bindings = <&mo 15>;
+            key-positions = <57 58>;
         };
     };
 
@@ -194,7 +199,7 @@
         };
         CLIP_STUDIO_1 {
             bindings = <
-&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
+&kp LC(LS(R))  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
 &trans  &kp APOSTROPHE  &kp MINUS  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
 &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
 &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans

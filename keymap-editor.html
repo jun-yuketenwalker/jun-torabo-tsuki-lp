@@ -2176,7 +2176,7 @@ function renderRawBuilderSubBody(root) {
   };
   const list = listByCat[cat] || [];
   root.innerHTML = `<div class="grid">${list.map(k =>
-    `<button data-key="${k}">${k.replace(/_/g, ' ')}</button>`
+    `<button data-key="${k}">${SYMBOL_DISPLAY[k] || k.replace(/_/g, ' ')}</button>`
   ).join('')}</div>`;
   root.querySelectorAll('button[data-key]').forEach(b => {
     b.addEventListener('click', () => finish(b.dataset.key));
