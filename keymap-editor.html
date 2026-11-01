@@ -1282,7 +1282,7 @@ function renderDialPanel() {
       (回転)と、各レイヤーの最後のキー(押し込み)が書き換わります。押し込みはキーマップタブの
       破線の丸いキー(位置66)でも変更できます。<br>
       ダイヤルは1周で${DIAL_COUNTS_PER_REVOLUTION}カウントです。スムーズスクロールを使わない設定なので、
-      スクロールはホイール1ノッチ単位になります(既定の 120:1 で1周あたり約10ノッチ)。
+      スクロールはホイール1ノッチ単位になり、速度は「1周で何ノッチ進むか」で設定します(既定 約10ノッチ)。
     </div>
     <div class="tb-card">
       <label><input type="checkbox" id="dial-radial-enable" ${state.dialRadialController ? 'checked' : ''}>
@@ -1342,8 +1342,54 @@ function renderDialPanel() {
   });
 }
 
+// Scroll speed is edited as "notches per revolution" (bigger = faster) rather
+// than the behavior's raw in:out cells, whose direction (bigger input = slower,
+// bigger output = faster) is easy to get backwards. Saved as in = 1275 / n, out = 1.
+const DIAL_NOTCH_PRESETS = [5, 10, 15, 20, 30];
+function dialNotchesPerRev(dial) {
+  return DIAL_COUNTS_PER_REVOLUTION * dial.out / dial.in;
+}
+function setDialNotchesPerRev(dial, notches) {
+  dial.in = Math.max(1, Math.round(DIAL_COUNTS_PER_REVOLUTION / notches));
+  dial.out = 1;
+}
+
 function renderDialModeBody(body, dial) {
-  if (dial.mode === 'scroll' || dial.mode === 'hscroll' || dial.mode === 'radial') {
+  if (dial.mode === 'scroll' || dial.mode === 'hscroll') {
+    body.innerHTML = `
+      <div class="row" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <label style="font-size:12px;">スクロール速度: 1周で</label>
+        <span style="font-size:11px;color:var(--muted);">遅い</span>
+        <input type="range" class="dial-speed-range" min="1" max="40" step="1" style="width:160px;">
+        <span style="font-size:11px;color:var(--muted);">速い</span>
+        <input type="number" class="dial-speed-num" min="1" max="${DIAL_COUNTS_PER_REVOLUTION}" step="0.5" style="width:60px;">
+        <span style="font-size:12px;">ノッチ</span>
+        ${DIAL_NOTCH_PRESETS.map(n => `<button class="dial-speed-preset" data-n="${n}">${n}${n === 10 ? '(既定)' : ''}</button>`).join('')}
+      </div>
+      <div class="dial-ratio-note" style="font-size:11px;color:var(--muted);margin-top:4px;"></div>
+    `;
+    const range = body.querySelector('.dial-speed-range');
+    const num = body.querySelector('.dial-speed-num');
+    const note = body.querySelector('.dial-ratio-note');
+    const refresh = () => {
+      const n = dialNotchesPerRev(dial);
+      num.value = Math.round(n * 10) / 10;
+      range.value = Math.min(40, Math.max(1, Math.round(n)));
+      note.textContent = `ホイール1ノッチ分 ≒ ダイヤル${(360 / n).toFixed(0)}°。数字を大きくするほど少し回すだけで大きくスクロールします`
+        + `(保存値 ${dial.in}:${dial.out})`;
+    };
+    const apply = (n) => {
+      if (!(n > 0)) { refresh(); return; }
+      setDialNotchesPerRev(dial, n);
+      refresh();
+      setDirty(true);
+    };
+    refresh();
+    range.addEventListener('input', () => apply(Number(range.value)));
+    num.addEventListener('change', () => apply(Number(num.value)));
+    body.querySelectorAll('.dial-speed-preset').forEach(b =>
+      b.addEventListener('click', () => apply(Number(b.dataset.n))));
+  } else if (dial.mode === 'radial') {
     body.innerHTML = `
       <label style="font-size:12px;">入力カウント:
         <input type="number" class="dial-in" min="1" max="9999" value="${dial.in}" style="width:60px;">
@@ -1355,10 +1401,7 @@ function renderDialModeBody(body, dial) {
     `;
     const note = body.querySelector('.dial-ratio-note');
     const updateNote = () => {
-      const perRev = DIAL_COUNTS_PER_REVOLUTION * dial.out / dial.in;
-      note.textContent = dial.mode === 'radial'
-        ? `物理回転を ${dial.out}/${dial.in} 倍にして送ります(既定 4:1)`
-        : `${dial.in}カウントごとにホイール${dial.out}ノッチ = 1周で約${perRev.toFixed(1)}ノッチ(既定 120:1)`;
+      note.textContent = `物理回転を ${dial.out}/${dial.in} 倍にして送ります(入力を大きくすると遅く、出力を大きくすると速く。既定 4:1)`;
     };
     updateNote();
     body.querySelector('.dial-in').addEventListener('change', e => {
