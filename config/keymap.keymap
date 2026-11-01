@@ -61,7 +61,7 @@
 
         layer10_mo {
             bindings = <&mo 10>;
-            key-positions = <56 57>;
+            key-positions = <29 43>;
         };
     };
 
@@ -232,7 +232,7 @@
 };
 
 /* === keymap-editor: dial sensor-bindings (auto-generated, safe to regenerate) === */
-&{/keymap/layer_0} { sensor-bindings = <&hires_dial_scroll 64 1>; };
+&{/keymap/layer_0} { sensor-bindings = <&hires_dial_scroll 51 1>; };
 &{/keymap/Kigou} { sensor-bindings = <&hires_dial_encoder SEMI MINUS>; };
 &{/keymap/YOBI} { sensor-bindings = <&hires_dial_encoder RIGHT_BRACKET LEFT_BRACKET>; };
 &{/keymap/Clip_studio} { sensor-bindings = <&hires_dial_encoder LA(LEFT_BRACKET) LA(RIGHT_BRACKET)>; };
