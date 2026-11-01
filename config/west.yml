@@ -24,18 +24,6 @@ manifest:
     - name: zmk-driver-paw3222
       remote: sekigon-gonnoc
       revision: torabo-tsuki
-    - name: zmk-driver-iqs7211e
-      remote: sekigon-gonnoc
-    # Confirmed by a hardware test-fit (2026-xx-xx) that adding this project
-    # here breaks the unrelated trackpad (input-trackpad-mini) build -- an
-    # old firmware build worked, a fresh one with this line added didn't,
-    # and removing it again restored the trackpad. Root cause in west's
-    # workspace resolution not identified. Worked around by vendoring the
-    # driver's source directly into this repo instead (src/hires_dial.c,
-    # src/behaviors/, include/zmk/hires_dial/, dts/) -- see CMakeLists.txt
-    # and zephyr/module.yml. Do not re-add this project.
-    # - name: zmk-driver-hires-dial
-    #   remote: sekigon-gonnoc
     - name: zmk-feature-cdc-acm-bootloader-trigger
       remote: sekigon-gonnoc
       revision: v0.2
@@ -43,6 +31,8 @@ manifest:
       remote: sekigon-gonnoc
       revision: main
     - name: zmk-driver-kscan-4-direction-switch
+      remote: sekigon-gonnoc
+    - name: zmk-driver-hires-dial
       remote: sekigon-gonnoc
   self:
     path: config

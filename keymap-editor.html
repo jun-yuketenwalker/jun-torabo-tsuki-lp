@@ -115,6 +115,7 @@
   .key:hover { border-color: var(--accent); box-shadow: 0 1px 4px rgba(0,0,0,0.12); }
   .key.selected { background: var(--key-active-bg); border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
   .key .pos { position: absolute; top: 3px; left: 5px; font-size: 10px; color: var(--muted); }
+  .key.dial-key { border-radius: 50%; border-style: dashed; }
   .trackball {
     position: absolute;
     border-radius: 50%;
@@ -358,7 +359,11 @@ const LAYOUT_XS = [
   {"pos":61,"x":1035,"y":350,"rot":0,"rx":0,"ry":0,"trackball":true},
   {"pos":62,"x":1150,"y":300,"rot":0,"rx":0,"ry":0,"trackball":true},
   {"pos":63,"x":1250,"y":325,"rot":0,"rx":0,"ry":0},
-  {"pos":64,"x":1350,"y":360,"rot":0,"rx":0,"ry":0}
+  {"pos":64,"x":1350,"y":360,"rot":0,"rx":0,"ry":0},
+  // Not a real key: the left hand's hires dial push switch (kscan row 5 /
+  // col 5, appended after every matrix key). Drawn in the gap between the
+  // halves so it can be edited like any other key.
+  {"pos":66,"x":625,"y":120,"rot":0,"rx":0,"ry":0,"dial":true}
 ];
 const KEY_W = 100, KEY_H = 100; // all keys are 1u on this board
 // positions 61/62 have no physical key on the real board — the trackball module
@@ -381,7 +386,9 @@ const TRACKBALL_VISUAL = (() => {
  *    unit-tested against the real repo files under Node before
  *    being embedded here verbatim).
  * ========================================================== */
-const ROW_SIZES = [12, 12, 14, 14, 14];
+// The last 1-token row is the dial push switch (position 66).
+const ROW_SIZES = [12, 12, 14, 14, 14, 1];
+const KEY_COUNT = ROW_SIZES.reduce((a, b) => a + b, 0);
 
 function tokenizeBindings(bindingsText) {
   const words = bindingsText.split(/\s+/).filter(Boolean);
@@ -423,7 +430,7 @@ function findLayerBlocks(keymapText) {
 function parseKeymap(keymapText) {
   const layers = findLayerBlocks(keymapText);
   return layers.map(({ name, tokens, bindingsBodyStart, bindingsBodyEnd }) => {
-    if (tokens.length !== 66) throw new Error(`layer ${name} has ${tokens.length} tokens, expected 66`);
+    if (tokens.length !== KEY_COUNT) throw new Error(`layer ${name} has ${tokens.length} tokens, expected ${KEY_COUNT}`);
     return { name, tokens, bindingsBodyStart, bindingsBodyEnd };
   });
 }
@@ -445,7 +452,7 @@ function serializeKeymap(originalKeymapText, editedLayersByName) {
     const layer = layers[i];
     const edited = editedLayersByName.get(layer.name);
     if (!edited) continue;
-    if (edited.length !== 66) throw new Error(`edited layer ${layer.name} must have 66 tokens`);
+    if (edited.length !== KEY_COUNT) throw new Error(`edited layer ${layer.name} must have ${KEY_COUNT} tokens`);
     const newBody = formatBindingsBody(edited);
     text = text.slice(0, layer.bindingsBodyStart) + newBody + text.slice(layer.bindingsBodyEnd);
   }
@@ -478,7 +485,7 @@ function serializeKeymapFull(originalKeymapText, layersState) {
     const orig = originalLayers[i];
     const edited = byOriginalName.get(orig.name);
     if (!edited) continue;
-    if (edited.tokens.length !== 66) throw new Error(`layer ${orig.name} must have 66 tokens`);
+    if (edited.tokens.length !== KEY_COUNT) throw new Error(`layer ${orig.name} must have ${KEY_COUNT} tokens`);
     const newBody = formatBindingsBody(edited.tokens);
     if (edited.name !== orig.name) {
       text = text.slice(0, orig.nameStart) + edited.name + text.slice(orig.nameEnd, orig.bindingsBodyStart) + newBody + text.slice(orig.bindingsBodyEnd);
@@ -491,7 +498,7 @@ function serializeKeymapFull(originalKeymapText, layersState) {
   if (newLayers.length > 0) {
     const insertPos = findKeymapNodeEnd(text);
     const blocks = newLayers.map(l => {
-      if (l.tokens.length !== 66) throw new Error(`new layer ${l.name} must have 66 tokens`);
+      if (l.tokens.length !== KEY_COUNT) throw new Error(`new layer ${l.name} must have ${KEY_COUNT} tokens`);
       return `        ${l.name} {\n            bindings = <${formatBindingsBody(l.tokens)}>;\n        };\n`;
     }).join('\n');
     text = text.slice(0, insertPos) + blocks + text.slice(insertPos);
@@ -629,7 +636,7 @@ function writeInvertFlags(fullText, blockRange, processorName, flags) {
 }
 
 /* ============================================================
- * 2c. Gesture support (trackball / trackpad directional keybinds)
+ * 2c. Gesture support (trackball directional keybinds)
  *
  * Uses the experimental te9no/zmk-input-processor-keybind module to turn
  * a burst of pointer movement into a discrete directional keypress, active
@@ -736,27 +743,33 @@ function writeGestureBlock(text, nodeLabel, layerNum, tokens, listenerRef, tick)
 }
 
 /* ============================================================
- * 2d. Hires dial support (snippets/input-hires-dial)
+ * 2d. Hires dial support (left-hand dial, right-hand central)
  *
  * The dial's rotation is exposed as ZMK "sensor-bindings", which (unlike
  * &kp bindings) live as a property directly on each keymap layer node --
  * so per-layer settings are written as devicetree node-path overrides
- * (&{/keymap/<layer name>} { sensor-bindings = ...; };) into the snippet's
- * own overlay, never into the shared config/keymap.keymap, so a build that
- * doesn't include this snippet (the trackpad board) is unaffected. Because
- * the override targets a layer by its *current* devicetree node name, the
- * whole marked block is regenerated fresh from state.layers on every save
- * (same approach as ensureGestureLayer() uses for layer *numbers*) -- so a
- * layer rename just naturally produces an updated reference next save. The
- * one caveat: if keymap.keymap is ever hand-edited (renaming a layer)
- * without going through this tool afterwards, this block's node reference
- * would go stale until the next save here.
+ * (&{/keymap/<layer name>} { sensor-bindings = ...; };) in a marked block
+ * at the end of config/keymap.keymap. The dial sits on the peripheral, but
+ * its rotation is forwarded to the central (split-input-hires-dial), and the
+ * keymap is only evaluated there. Because the override targets a layer by
+ * its *current* devicetree node name, the whole marked block is regenerated
+ * fresh from state.layers on every save -- so a layer rename just naturally
+ * produces an updated reference next save. The one caveat: if keymap.keymap
+ * is ever hand-edited (renaming a layer) without going through this tool
+ * afterwards, this block's node reference would go stale until the next save.
  * ========================================================== */
 const DIAL_MARKER_START = '/* === keymap-editor: dial sensor-bindings (auto-generated, safe to regenerate) === */';
 const DIAL_MARKER_END = '/* === keymap-editor: end dial sensor-bindings === */';
 
+// The sensor reports 1275 counts per revolution, and &hires_dial_scroll emits
+// one WHEEL unit per (in / out) counts. Without CONFIG_ZMK_POINTING_SMOOTH_SCROLLING
+// (this repo leaves it off) one WHEEL unit is a whole notch, so scrolling needs a
+// large input count to stay usable: 120:1 is roughly 10 notches per revolution.
+const DIAL_COUNTS_PER_REVOLUTION = 1275;
+const DIAL_DEFAULT_RATIO = { scroll: [120, 1], hscroll: [120, 1], radial: [4, 1] };
+
 function dialDefault() {
-  return { mode: 'none', in: 1, out: 1, token1: '&kp C_VOLUME_UP', token2: '&kp C_VOLUME_DOWN' };
+  return { mode: 'none', in: 120, out: 1, token1: '&kp C_VOLUME_UP', token2: '&kp C_VOLUME_DOWN' };
 }
 
 const DIAL_BEHAVIOR_BY_MODE = { scroll: 'hires_dial_scroll', hscroll: 'hires_dial_hscroll', radial: 'hires_dial_radial_controller' };
@@ -766,7 +779,7 @@ const DIAL_MODE_BY_BEHAVIOR = { hires_dial_scroll: 'scroll', hires_dial_hscroll:
 // not &kp-wrapped behavior refs -- see the driver's own README example
 // (`<&hires_dial_encoder C_VOL_UP C_VOL_DN>`). The picker always returns
 // "&kp X" style tokens though, so we store that for display (shortLabel
-// etc.) and strip the "&kp " prefix only when serializing into the overlay.
+// etc.) and strip the "&kp " prefix only when serializing into the keymap.
 function dialTokenToRawKeycode(token) {
   const m = token.match(/^&kp\s+(.+)$/);
   return m ? m[1] : token.replace(/^&/, '');
@@ -866,7 +879,7 @@ const state = {
   combosBlockRange: null,
   macros: [],               // [{id, label, tokens}]
   macrosBlockRange: null,
-  gesture: null,            // { trackball: {tokens}, trackpad: {tokens} }
+  gesture: null,            // { trackball: {tokens, tick} }
   dirty: false,
   trackball: null,         // parsed settings, see loadTrackballSettings()
   dialRadialController: false, // CONFIG_ZMK_HIRES_DIAL_RADIAL_CONTROLLER on/off
@@ -878,8 +891,6 @@ const PATHS = {
   westYml: ['config', 'west.yml'],
   rightOverlay: ['boards', 'shields', 'torabo_tsuki_lp', 'torabo_tsuki_lp_right.overlay'],
   leftOverlay: ['boards', 'shields', 'torabo_tsuki_lp', 'torabo_tsuki_lp_left.overlay'],
-  splitListenerOverlay: ['snippets', 'input-split-listener', 'input-split-listener.overlay'],
-  dialOverlay: ['snippets', 'input-hires-dial', 'input-hires-dial.overlay'],
   dialConf: ['snippets', 'input-hires-dial', 'input-hires-dial.conf'],
 };
 
@@ -901,8 +912,7 @@ async function openFolder() {
 
   const keyToPath = {
     keymap: PATHS.keymap, westYml: PATHS.westYml, rightOverlay: PATHS.rightOverlay,
-    leftOverlay: PATHS.leftOverlay, splitListenerOverlay: PATHS.splitListenerOverlay,
-    dialOverlay: PATHS.dialOverlay, dialConf: PATHS.dialConf,
+    leftOverlay: PATHS.leftOverlay, dialConf: PATHS.dialConf,
   };
   for (const [key, parts] of Object.entries(keyToPath)) {
     const fh = await getFileHandleByPath(dirHandle, parts);
@@ -924,18 +934,11 @@ async function openFolder() {
 
   state.gesture = {
     trackball: parseGestureBlock(state.originalTexts.rightOverlay),
-    // The trackpad-mini is on the peripheral, but its raw movement is
-    // forwarded to the central via zmk,input-split (see the "input-split"
-    // vs. "input-listener" snippets in build.yaml) -- the peripheral's own
-    // &pointing_listener never sees it, only the central's
-    // pointing_device_split_listener (in splitListenerOverlay) does, since
-    // layer state (which gates the gesture) only exists on the central.
-    trackpad: parseGestureBlock(state.originalTexts.splitListenerOverlay),
   };
 
   loadTrackballSettings();
 
-  const dialMap = parseDialBindings(state.originalTexts.dialOverlay);
+  const dialMap = parseDialBindings(state.originalTexts.keymap);
   state.layers.forEach(l => { l.dial = dialMap.get(l.name) || dialDefault(); });
   state.dialRadialController = loadDialRadialControllerFlag(state.originalTexts.dialConf);
 
@@ -1013,7 +1016,7 @@ function ensureGestureLayer() {
   const reservedCount = countReservedLayers(state.originalTexts.keymap);
   const idx = state.layers.findIndex(l => l.name === GESTURE_LAYER_NAME);
   if (idx !== -1) return idx + reservedCount;
-  state.layers.push({ name: GESTURE_LAYER_NAME, tokens: new Array(66).fill('&trans') });
+  state.layers.push({ name: GESTURE_LAYER_NAME, tokens: new Array(KEY_COUNT).fill('&trans') });
   return state.layers.length - 1 + reservedCount;
 }
 
@@ -1046,6 +1049,8 @@ async function saveAll() {
       const macroBlock = extractBlock(newKeymapText, 'macros {');
       newKeymapText = serializeMacros(newKeymapText, macroBlock, state.macros);
     }
+    // Dial sensor-bindings, regenerated from the (possibly renamed) layers.
+    newKeymapText = writeDialBlock(newKeymapText, state.layers);
     await writeFile('keymap', newKeymapText);
 
     // 1b. west.yml: ensure the gesture module dependency is present.
@@ -1078,32 +1083,11 @@ async function saveAll() {
     state.originalTexts.rightOverlay = rightText;
     await writeFile('rightOverlay', rightText);
 
-    // 2b. left.overlay: no gesture block here. The trackpad-mini is on this
-    // peripheral, but its movement is forwarded via zmk,input-split rather
-    // than processed locally, so &pointing_listener in this file never sees
-    // it -- see the comment on state.gesture.trackpad in openFolder().
+    // 2b. left.overlay: nothing to edit here (the dial's settings live in
+    // keymap.keymap), written back unchanged.
     await writeFile('leftOverlay', state.originalTexts.leftOverlay);
 
-    // 3. input-split-listener.overlay (left / double-ball side speed + invert
-    // flags + trackpad gesture, since this is the listener that actually
-    // receives the peripheral's forwarded movement on the central).
-    let splitText = state.originalTexts.splitListenerOverlay;
-    const splitBlock = extractBlock(splitText, 'pointing_device_split_listener:');
-    if (splitBlock) {
-      splitText = writeScalerFraction(splitText, splitBlock, 'zip_xy_scaler', tb.split.xy.num, tb.split.xy.den);
-      splitText = writeScalerFraction(splitText, extractBlock(splitText, 'pointing_device_split_listener:'), 'zip_scroll_scaler', tb.split.scroll.num, tb.split.scroll.den);
-      splitText = writeInvertFlags(splitText, extractBlock(splitText, 'pointing_device_split_listener:'), 'zip_xy_transform', tb.split.xyInvert);
-      splitText = writeInvertFlags(splitText, extractBlock(splitText, 'pointing_device_split_listener:'), 'zip_scroll_transform', tb.split.scrollInvert);
-    }
-    splitText = writeGestureBlock(splitText, 'zip_gesture_trackpad', gestureLayerIndex, state.gesture.trackpad.tokens, '&pointing_device_split_listener', state.gesture.trackpad.tick);
-    state.originalTexts.splitListenerOverlay = splitText;
-    await writeFile('splitListenerOverlay', splitText);
-
-    // 4. input-hires-dial.overlay / .conf (dial sensor-bindings + Radial Controller toggle)
-    let dialOverlayText = writeDialBlock(state.originalTexts.dialOverlay, state.layers);
-    state.originalTexts.dialOverlay = dialOverlayText;
-    await writeFile('dialOverlay', dialOverlayText);
-
+    // 3. input-hires-dial.conf (Radial Controller toggle, shared by both halves)
     let dialConfText = writeDialRadialControllerFlag(state.originalTexts.dialConf, state.dialRadialController);
     state.originalTexts.dialConf = dialConfText;
     await writeFile('dialConf', dialConfText);
@@ -1132,27 +1116,17 @@ async function writeFile(key, text) {
  * ========================================================== */
 function loadTrackballSettings() {
   const rightText = state.originalTexts.rightOverlay;
-  const splitText = state.originalTexts.splitListenerOverlay;
 
   const outerBlock = extractBlock(rightText, '&pointing_listener');
   const outerContent = outerBlock ? rightText.slice(outerBlock.braceStart, outerBlock.braceEnd + 1) : '';
   const scrollBlockRel = outerBlock ? extractBlock(outerContent, 'scroll_layer') : null;
   const scrollContent = scrollBlockRel ? outerContent.slice(scrollBlockRel.braceStart, scrollBlockRel.braceEnd + 1) : '';
 
-  const splitBlock = extractBlock(splitText, 'pointing_device_split_listener:');
-  const splitContent = splitBlock ? splitText.slice(splitBlock.braceStart, splitBlock.braceEnd + 1) : '';
-
   state.trackball = {
     right: {
       xy: readScalerFraction(outerContent, 'zip_xy_scaler') || { num: 1, den: 1 },
       xyInvert: readInvertFlags(outerContent, 'zip_xy_transform', ['INPUT_TRANSFORM_X_INVERT', 'INPUT_TRANSFORM_Y_INVERT']),
       scroll: readScalerFraction(scrollContent, 'zip_scroll_scaler') || { num: 1, den: 1 },
-    },
-    split: {
-      xy: readScalerFraction(splitContent, 'zip_xy_scaler') || { num: 1, den: 1 },
-      xyInvert: readInvertFlags(splitContent, 'zip_xy_transform', ['INPUT_TRANSFORM_X_INVERT', 'INPUT_TRANSFORM_Y_INVERT']),
-      scroll: readScalerFraction(splitContent, 'zip_scroll_scaler') || { num: 1, den: 1 },
-      scrollInvert: readInvertFlags(splitContent, 'zip_scroll_transform', ['INPUT_TRANSFORM_Y_INVERT']),
     },
   };
 }
@@ -1197,45 +1171,17 @@ function renderTrackballPanel() {
       </div>
     </div>
 
-    <div class="tb-card">
-      <h3>左手側 / ダブルボール構成のトラックボール</h3>
-      <div class="path">snippets/input-split-listener/input-split-listener.overlay</div>
-      <div class="tb-row">
-        <label for="s-xy">ポインタ移動速度</label>
-        <input type="range" id="s-xy" min="10" max="300" value="${fracToPercent(tb.split.xy)}">
-        <span class="val" id="s-xy-val">${fracToPercent(tb.split.xy)}%</span>
-      </div>
-      <div class="tb-row">
-        <label for="s-scroll">スクロール速度</label>
-        <input type="range" id="s-scroll" min="10" max="300" value="${fracToPercent(tb.split.scroll)}">
-        <span class="val" id="s-scroll-val">${fracToPercent(tb.split.scroll)}%</span>
-      </div>
-      <div class="tb-row checkbox">
-        <label><input type="checkbox" id="s-xy-invx" ${tb.split.xyInvert.INPUT_TRANSFORM_X_INVERT ? 'checked' : ''}> X軸を反転</label>
-      </div>
-      <div class="tb-row checkbox">
-        <label><input type="checkbox" id="s-xy-invy" ${tb.split.xyInvert.INPUT_TRANSFORM_Y_INVERT ? 'checked' : ''}> Y軸を反転</label>
-      </div>
-      <div class="tb-row checkbox">
-        <label><input type="checkbox" id="s-scroll-invy" ${tb.split.scrollInvert.INPUT_TRANSFORM_Y_INVERT ? 'checked' : ''}> スクロール方向を反転</label>
-      </div>
-    </div>
   `;
 
   const bind = (id, cb) => document.getElementById(id).addEventListener('input', cb);
   bind('r-xy', e => { tb.right.xy = percentToFrac(+e.target.value); document.getElementById('r-xy-val').textContent = e.target.value + '%'; setDirty(true); });
   bind('r-scroll', e => { tb.right.scroll = percentToFrac(+e.target.value); document.getElementById('r-scroll-val').textContent = e.target.value + '%'; setDirty(true); });
-  bind('s-xy', e => { tb.split.xy = percentToFrac(+e.target.value); document.getElementById('s-xy-val').textContent = e.target.value + '%'; setDirty(true); });
-  bind('s-scroll', e => { tb.split.scroll = percentToFrac(+e.target.value); document.getElementById('s-scroll-val').textContent = e.target.value + '%'; setDirty(true); });
   bind('r-xy-invx', e => { tb.right.xyInvert.INPUT_TRANSFORM_X_INVERT = e.target.checked; setDirty(true); });
   bind('r-xy-invy', e => { tb.right.xyInvert.INPUT_TRANSFORM_Y_INVERT = e.target.checked; setDirty(true); });
-  bind('s-xy-invx', e => { tb.split.xyInvert.INPUT_TRANSFORM_X_INVERT = e.target.checked; setDirty(true); });
-  bind('s-xy-invy', e => { tb.split.xyInvert.INPUT_TRANSFORM_Y_INVERT = e.target.checked; setDirty(true); });
-  bind('s-scroll-invy', e => { tb.split.scrollInvert.INPUT_TRANSFORM_Y_INVERT = e.target.checked; setDirty(true); });
 }
 
 /* ============================================================
- * 4a2. Gesture editor (trackball / trackpad directional keybinds)
+ * 4a2. Gesture editor (trackball directional keybinds)
  * ========================================================== */
 function renderGesturePanel() {
   const root = document.getElementById('panel-gesture');
@@ -1271,17 +1217,14 @@ function renderGesturePanel() {
 
   root.innerHTML = `
     <div class="notice">
-      トラックボール/トラックパッドの移動を4方向のキー入力に変換する「ジェスチャー」機能です。
+      トラックボールの移動を4方向のキー入力に変換する「ジェスチャー」機能です。
       実験的な外部モジュール(<code>te9no/zmk-input-processor-keybind</code>、公式にリリースなし・
       "somewhat works" と明記)を使用します。保存すると <code>config/west.yml</code> に依存モジュールが
       追加され、対応する overlay ファイルにジェスチャー用の設定ブロックが追記されます。<br>
       ${layerNote} キーマップタブで任意のキーに <code>&amp;mo ${layerIdx}</code>
-      を割り当てて、ジェスチャー発動キーにしてください。<br>
-      トラックパッドは本来のハードウェアスワイプ検知ではなく、トラックボールと同じ「移動量→方向キー」の
-      仕組みを流用したものです。
+      を割り当てて、ジェスチャー発動キーにしてください。
     </div>
     ${directionCard('トラックボール(右手)', 'boards/shields/torabo_tsuki_lp/torabo_tsuki_lp_right.overlay', 'trackball')}
-    ${directionCard('トラックパッド(左手)', 'snippets/input-split-listener/input-split-listener.overlay', 'trackpad')}
   `;
 
   root.querySelectorAll('.gesture-dir-btn').forEach(btn => {
@@ -1326,28 +1269,21 @@ function ensureLayerDial(layer) {
   return layer.dial;
 }
 
-// PUSH's GPIO-direct kscan attempt (layered onto canonical position 0) was
-// reverted: the pin it used (gpio0 8) turned out to likely be the sensor's
-// power-enable line, and claiming it for both purposes at once probably
-// caused the first test build's total non-response. Nothing currently
-// reads position 0 in firmware, so the button below is disabled until
-// PUSH's real GPIO is found and input-hires-dial.overlay wires it up again
-// -- kept visible (rather than removed) so the mode/position choice carries
-// over once that happens.
-const DIAL_PUSH_POSITION = 0;
-const DIAL_PUSH_IMPLEMENTED = true;
+// The dial's push switch is an extra kscan key appended after every matrix
+// key, i.e. the last binding of each layer (also editable on the keymap tab).
+const DIAL_PUSH_POSITION = 66;
 
 function renderDialPanel() {
   const root = document.getElementById('panel-dial');
   if (!root) return;
   root.innerHTML = `
     <div class="notice">
-      左手の高分解能ダイヤルモジュール(<a href="https://github.com/sekigon-gonnoc/hires-dial-module" target="_blank" rel="noopener">hires-dial-module</a>、
-      トラックパッドと同じコネクタを使う構成)の回転動作をレイヤーごとに設定します。保存すると
-      <code>snippets/input-hires-dial/input-hires-dial.overlay</code> の自動生成ブロックが書き換わります
-      (このsnippetを使うビルド構成だけに反映され、トラックパッド版には影響しません)。<br>
-      クリック(PUSH)は本家リポジトリの参考コード(gpio0 19)を元に再実装しました(位置0に重ねる方式は変更
-      していません)。実機未確認なので、下の「クリック」欄で設定して試してみてください。
+      左手の高分解能ダイヤルモジュール(<a href="https://github.com/sekigon-gonnoc/zmk-driver-hires-dial" target="_blank" rel="noopener">zmk-driver-hires-dial</a>)の
+      動作をレイヤーごとに設定します。保存すると <code>config/keymap.keymap</code> 末尾の自動生成ブロック
+      (回転)と、各レイヤーの最後のキー(押し込み)が書き換わります。押し込みはキーマップタブの
+      破線の丸いキー(位置66)でも変更できます。<br>
+      ダイヤルは1周で${DIAL_COUNTS_PER_REVOLUTION}カウントです。スムーズスクロールを使わない設定なので、
+      スクロールはホイール1ノッチ単位になります(既定の 120:1 で1周あたり約10ノッチ)。
     </div>
     <div class="tb-card">
       <label><input type="checkbox" id="dial-radial-enable" ${state.dialRadialController ? 'checked' : ''}>
@@ -1378,7 +1314,7 @@ function renderDialPanel() {
       <div class="dial-mode-body"></div>
       <div class="row" style="margin-top:8px;">
         <label style="font-size:12px;">クリック(PUSH):</label>
-        <button class="dial-push-btn" ${DIAL_PUSH_IMPLEMENTED ? '' : 'disabled title="未実装(配線が分かったら実装し直します)"'}>${shortLabel(layer.tokens[DIAL_PUSH_POSITION])}</button>
+        <button class="dial-push-btn">${shortLabel(layer.tokens[DIAL_PUSH_POSITION])}</button>
       </div>
     `;
     list.appendChild(card);
@@ -1386,19 +1322,20 @@ function renderDialPanel() {
     renderDialModeBody(body, dial);
     card.querySelector('.dial-mode-select').addEventListener('change', e => {
       dial.mode = e.target.value;
+      const ratio = DIAL_DEFAULT_RATIO[dial.mode];
+      if (ratio) [dial.in, dial.out] = ratio;
       setDirty(true);
       renderDialModeBody(body, dial);
     });
-    if (DIAL_PUSH_IMPLEMENTED) {
-      const pushBtn = card.querySelector('.dial-push-btn');
-      pushBtn.addEventListener('click', () => {
-        openPicker(layer.tokens[DIAL_PUSH_POSITION], (token) => {
-          layer.tokens[DIAL_PUSH_POSITION] = token;
-          setDirty(true);
-          pushBtn.textContent = shortLabel(token);
-        });
+    const pushBtn = card.querySelector('.dial-push-btn');
+    pushBtn.addEventListener('click', () => {
+      openPicker(layer.tokens[DIAL_PUSH_POSITION], (token) => {
+        layer.tokens[DIAL_PUSH_POSITION] = token;
+        setDirty(true);
+        pushBtn.textContent = shortLabel(token);
+        renderBoard();
       });
-    }
+    });
   });
 }
 
@@ -1406,21 +1343,31 @@ function renderDialModeBody(body, dial) {
   if (dial.mode === 'scroll' || dial.mode === 'hscroll' || dial.mode === 'radial') {
     body.innerHTML = `
       <label style="font-size:12px;">入力カウント:
-        <input type="number" class="dial-in" min="1" max="999" value="${dial.in}" style="width:60px;">
+        <input type="number" class="dial-in" min="1" max="9999" value="${dial.in}" style="width:60px;">
       </label>
       <label style="font-size:12px;margin-left:8px;">出力カウント:
         <input type="number" class="dial-out" min="1" max="999" value="${dial.out}" style="width:60px;">
       </label>
-      <span style="font-size:11px;color:var(--muted);margin-left:8px;">
-        物理${dial.in}カウントの回転をWHEEL値${dial.out}に変換(既定 1:1。数字を大きくするほど鈍くなります)
-      </span>
+      <span class="dial-ratio-note" style="font-size:11px;color:var(--muted);margin-left:8px;"></span>
     `;
+    const note = body.querySelector('.dial-ratio-note');
+    const updateNote = () => {
+      const perRev = DIAL_COUNTS_PER_REVOLUTION * dial.out / dial.in;
+      note.textContent = dial.mode === 'radial'
+        ? `物理回転を ${dial.out}/${dial.in} 倍にして送ります(既定 4:1)`
+        : `${dial.in}カウントごとにホイール${dial.out}ノッチ = 1周で約${perRev.toFixed(1)}ノッチ(既定 120:1)`;
+    };
+    updateNote();
     body.querySelector('.dial-in').addEventListener('change', e => {
       dial.in = Math.max(1, Math.round(Number(e.target.value)) || 1);
+      e.target.value = dial.in;
+      updateNote();
       setDirty(true);
     });
     body.querySelector('.dial-out').addEventListener('change', e => {
       dial.out = Math.max(1, Math.round(Number(e.target.value)) || 1);
+      e.target.value = dial.out;
+      updateNote();
       setDirty(true);
     });
   } else if (dial.mode === 'encoder') {
@@ -1799,7 +1746,7 @@ function addLayer() {
   let n = state.layers.length;
   let name = 'Layer_' + n;
   while (state.layers.some(l => l.name === name)) { n++; name = 'Layer_' + n; }
-  state.layers.push({ name, tokens: new Array(66).fill('&trans') });
+  state.layers.push({ name, tokens: new Array(KEY_COUNT).fill('&trans') });
   state.currentLayer = name;
   setDirty(true);
   renderLayerTabs();
@@ -1852,7 +1799,7 @@ function renderKeyPositionPicker(container, selected, onToggle) {
   const referenceTokens = state.layers[0] ? state.layers[0].tokens : [];
   LAYOUT_XS.filter(k => !k.trackball).forEach(k => {
     const div = document.createElement('div');
-    div.className = 'key' + (selected.has(k.pos) ? ' selected' : '');
+    div.className = 'key' + (k.dial ? ' dial-key' : '') + (selected.has(k.pos) ? ' selected' : '');
     positionKeyDiv(div, k, scale, minX, minY);
     const posSpan = document.createElement('span');
     posSpan.className = 'pos';
@@ -1889,7 +1836,7 @@ function renderBoard() {
   const tokens = currentLayerTokens();
   LAYOUT_XS.filter(k => !k.trackball).forEach(k => {
     const div = document.createElement('div');
-    div.className = 'key';
+    div.className = 'key' + (k.dial ? ' dial-key' : '');
     div.dataset.pos = k.pos;
     positionKeyDiv(div, k, scale, minX, minY);
     const posSpan = document.createElement('span');

@@ -1,7 +1,5 @@
 build:
   cmake: .
-  kconfig: Kconfig.hires_dial
   settings:
     board_root: .
     snippet_root: .
-    dts_root: .

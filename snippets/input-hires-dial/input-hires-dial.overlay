@@ -1,23 +1,68 @@
-#include <dt-bindings/zmk/keys.h>
-#include <behaviors/hires_dial.dtsi>
+#include <zephyr/dt-bindings/gpio/gpio.h>
+#include <zephyr/dt-bindings/i2c/i2c.h>
+#include <zephyr/dt-bindings/input/input-event-codes.h>
+#include <zephyr/dt-bindings/gpio/nordic-nrf-gpio.h>
 
-/* Same I2C bus + 6-pin connector the left peripheral's input-trackpad-mini
- * snippet uses for the IQS7211E (see
- * snippets/input-trackpad-mini/input-trackpad-mini.overlay) -- the dial
- * module plugs into that same header instead of a new one. motion-gpios
- * reuses the old irq-gpios pin (gpio0 20).
- *
- * 2026-xx-xx: upstream (sekigon-gonnoc/zmk-keyboard-torabo-tsuki-lp commit
- * 46ea7ca, "hires-dial用のスニペットを追加(動作未確認)" -- explicitly marked
- * unverified by the author) has their own hires-dial snippet, not yet
- * merged into this fork. Pulled the hires_dial node properties from it
- * (res-cpi/motion-read-interval-ms/sleep1-enable/sleep2-enable were
- * missing here) and reverted power-gpios back to ACTIVE_HIGH to match --
- * flipping it to ACTIVE_LOW as a test made no difference either, so it's
- * back to the documented value. Crucially, upstream's version puts PUSH on
- * gpio0 19, not gpio0 8 -- gpio0 8 really is power-gpios, confirmed by
- * upstream using the exact same pin for the exact same purpose.
- */
+/ {
+    chosen {
+        zmk,kscan = &kscan_hires_dial_composite;
+    };
+
+    hires_dial_button_kscan: hires_dial_button_kscan {
+        compatible = "zmk,kscan-gpio-direct";
+        input-gpios = <&gpio0 19 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+        wakeup-source;
+    };
+
+    kscan_hires_dial_composite: kscan_hires_dial_composite {
+        compatible = "zmk,kscan-composite";
+        rows = <6>;
+        columns = <7>;
+
+        matrix {
+            kscan = <&kscan0>;
+            col-offset = <TORABO_TSUKI_LP_MATRIX_COL_OFFSET>;
+        };
+
+        dial-button {
+            kscan = <&hires_dial_button_kscan>;
+            row-offset = <5>;
+            col-offset = <5>;
+        };
+    };
+
+    sensors {
+        compatible = "zmk,keymap-sensors";
+        sensors = <&hires_dial>;
+        triggers-per-rotation = <20>;
+    };
+
+#if !defined(TORABO_TSUKI_LP_INPUT_HIRES_DIAL_PERIPHERAL)
+    /* Behavior devices are built only on central, so peripheral must not reference them. */
+    hires_dial_scroll_listener {
+        compatible = "zmk,input-listener";
+        device = <&hires_dial_scroll>;
+    };
+
+    hires_dial_hscroll_listener {
+        compatible = "zmk,input-listener";
+        device = <&hires_dial_hscroll>;
+    };
+#endif
+};
+
+&physical_layout_s {
+    kscan = <&kscan_hires_dial_composite>;
+};
+
+&physical_layout_m {
+    kscan = <&kscan_hires_dial_composite>;
+};
+
+&physical_layout_l {
+    kscan = <&kscan_hires_dial_composite>;
+};
+
 &i2c0 {
     status = "okay";
     compatible = "nordic,nrf-twim";
@@ -34,72 +79,24 @@
         counts-per-revolution = <1275>;
         motion-read-interval-ms = <8>;
         motion-gpios = <&gpio0 20 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
-        power-gpios = <&gpio0 8 (GPIO_ACTIVE_HIGH | NRF_GPIO_DRIVE_H1)>;
+        power-gpios = <&gpio0 8 (GPIO_ACTIVE_HIGH | NRF_GPIO_DRIVE_H0H1)>;
         sleep1-enable;
         sleep2-enable;
     };
 };
 
-/ {
-    sensors {
-        compatible = "zmk,keymap-sensors";
-        sensors = <&hires_dial>;
-        triggers-per-rotation = <20>;
-    };
+&hires_dial_encoder {
+    sensor = <&hires_dial>;
 };
 
-&hires_dial_encoder { sensor = <&hires_dial>; };
-&hires_dial_scroll { sensor = <&hires_dial>; };
-&hires_dial_hscroll { sensor = <&hires_dial>; };
-&hires_dial_radial_controller { sensor = <&hires_dial>; };
-
-/* PUSH, re-added with the pin from upstream's reference code: gpio0 19
- * (not gpio0 8, which is confirmed power-gpios above). Same approach as
- * before -- a 1-key zmk,kscan-gpio-direct layered via zmk,kscan-composite
- * onto canonical position 0 (the always-&trans "top row" cell this board
- * has no real switch for), rather than upstream's own row-6 matrix
- * extension, which needs a matching physical_layout key that upstream's
- * commit never actually added (see the long comment this replaced, and the
- * keymap-editor.html comment by DIAL_PUSH_POSITION for why position 0 is
- * safe to reuse without changing config/keymap.keymap's length).
- */
-/ {
-    chosen {
-        zmk,kscan = &kscan_dial;
-    };
-
-    kscan_push: kscan_push {
-        compatible = "zmk,kscan-gpio-direct";
-        input-gpios = <&gpio0 19 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
-    };
-
-    kscan_dial: kscan_dial {
-        compatible = "zmk,kscan-composite";
-        rows = <5>;
-        columns = <14>;
-
-        matrix {
-            kscan = <&kscan0>;
-        };
-
-        push {
-            kscan = <&kscan_push>;
-        };
-    };
+&hires_dial_scroll {
+    sensor = <&hires_dial>;
 };
 
-/* TEMPORARY for hardware debugging: layer_0 sends A/B instead of whatever
- * it's configured to in the editor, since "does rotating type a letter in
- * a text box" is the most unambiguous way to confirm the sensor is talking
- * to the MCU at all -- far easier to eyeball than a silent volume change or
- * an app-specific shortcut. Restore via the keymap-editor.html Dial tab
- * (it still has the real settings for every layer; this override doesn't
- * touch that state) once rotation is confirmed working.
- */
-/* === keymap-editor: dial sensor-bindings (auto-generated, safe to regenerate) === */
-&{/keymap/layer_0} { sensor-bindings = <&hires_dial_encoder A B>; };
-&{/keymap/Flip_Right} { sensor-bindings = <&hires_dial_encoder C_VOLUME_UP C_VOLUME_DOWN>; };
-&{/keymap/CLIP_STUDIO_1} { sensor-bindings = <&hires_dial_encoder APOSTROPHE MINUS>; };
-&{/keymap/CLIP_STUDIO_2} { sensor-bindings = <&hires_dial_encoder RIGHT_BRACKET LEFT_BRACKET>; };
-&{/keymap/CLIP_STUDIO_3} { sensor-bindings = <&hires_dial_encoder LA(LEFT_PARENTHESIS) LA(RIGHT_BRACKET)>; };
-/* === keymap-editor: end dial sensor-bindings === */
+&hires_dial_hscroll {
+    sensor = <&hires_dial>;
+};
+
+&hires_dial_radial_controller {
+    sensor = <&hires_dial>;
+};
