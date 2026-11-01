@@ -1,3 +1,5 @@
+#include <dt-bindings/zmk/input_transform.h>
+
 / {
     /* Split HIRES events use sensor index 0; this device never emits local events. */
     split_hires_dial_sensor: split_hires_dial_sensor {
@@ -37,3 +39,9 @@
 &hires_dial_radial_controller {
     sensor = <&split_hires_dial_sensor>;
 };
+
+/* === keymap-editor: dial scroll direction (auto-generated, safe to regenerate) === */
+&{/hires_dial_scroll_listener} {
+    input-processors = <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>;
+};
+/* === keymap-editor: end dial scroll direction === */
