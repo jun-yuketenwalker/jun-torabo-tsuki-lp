@@ -16,6 +16,11 @@
     hires_dial_scroll_listener {
         compatible = "zmk,input-listener";
         device = <&hires_dial_scroll>;
+        /* Clockwise scrolls down, counter-clockwise scrolls up. Only vertical
+         * scrolling is flipped; the sensor's own `invert` would also flip the
+         * encoder and Radial Controller layers. zip_scroll_transform comes from
+         * input/processors.dtsi, included by the right shield overlay. */
+        input-processors = <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>;
     };
 
     hires_dial_hscroll_listener {
@@ -39,9 +44,3 @@
 &hires_dial_radial_controller {
     sensor = <&split_hires_dial_sensor>;
 };
-
-/* === keymap-editor: dial scroll direction (auto-generated, safe to regenerate) === */
-&{/hires_dial_scroll_listener} {
-    input-processors = <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>;
-};
-/* === keymap-editor: end dial scroll direction === */

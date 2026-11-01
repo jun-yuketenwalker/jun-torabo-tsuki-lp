@@ -837,28 +837,6 @@ function writeDialBlock(text, layers) {
   return text + sep + newBlockText;
 }
 
-// Vertical dial scrolling can be reversed on the central's listener for
-// &hires_dial_scroll only, so the encoder/Radial Controller layers keep their
-// direction (the sensor's own `invert` property would flip all of them).
-const DIAL_SCROLL_DIR_MARKER_START = '/* === keymap-editor: dial scroll direction (auto-generated, safe to regenerate) === */';
-const DIAL_SCROLL_DIR_MARKER_END = '/* === keymap-editor: end dial scroll direction === */';
-
-function loadDialScrollInvert(text) {
-  const block = extractMarkedBlock(text, DIAL_SCROLL_DIR_MARKER_START, DIAL_SCROLL_DIR_MARKER_END);
-  return !!block && text.slice(block.start, block.end).includes('INPUT_TRANSFORM_Y_INVERT');
-}
-
-function writeDialScrollInvert(text, inverted) {
-  const body = inverted
-    ? '&{/hires_dial_scroll_listener} {\n    input-processors = <&zip_scroll_transform INPUT_TRANSFORM_Y_INVERT>;\n};\n'
-    : '';
-  const newBlockText = `${DIAL_SCROLL_DIR_MARKER_START}\n${body}${DIAL_SCROLL_DIR_MARKER_END}\n`;
-  const block = extractMarkedBlock(text, DIAL_SCROLL_DIR_MARKER_START, DIAL_SCROLL_DIR_MARKER_END);
-  if (block) return text.slice(0, block.start) + newBlockText + text.slice(block.end);
-  const sep = text.endsWith('\n') ? '\n' : '\n\n';
-  return text + sep + newBlockText;
-}
-
 const DIAL_RADIAL_CONF_LINE = 'CONFIG_ZMK_HIRES_DIAL_RADIAL_CONTROLLER=y';
 
 function loadDialRadialControllerFlag(text) {
@@ -905,7 +883,6 @@ const state = {
   dirty: false,
   trackball: null,         // parsed settings, see loadTrackballSettings()
   dialRadialController: false, // CONFIG_ZMK_HIRES_DIAL_RADIAL_CONTROLLER on/off
-  dialScrollInvert: false,  // reverse vertical dial scrolling (central listener)
   onPickerSelect: null,    // callback(token) for the currently open picker
 };
 
@@ -915,7 +892,6 @@ const PATHS = {
   rightOverlay: ['boards', 'shields', 'torabo_tsuki_lp', 'torabo_tsuki_lp_right.overlay'],
   leftOverlay: ['boards', 'shields', 'torabo_tsuki_lp', 'torabo_tsuki_lp_left.overlay'],
   dialConf: ['snippets', 'input-hires-dial', 'input-hires-dial.conf'],
-  dialCentralOverlay: ['snippets', 'split-input-hires-dial', 'split-input-hires-dial.overlay'],
 };
 
 async function getFileHandleByPath(root, parts) {
@@ -937,7 +913,6 @@ async function openFolder() {
   const keyToPath = {
     keymap: PATHS.keymap, westYml: PATHS.westYml, rightOverlay: PATHS.rightOverlay,
     leftOverlay: PATHS.leftOverlay, dialConf: PATHS.dialConf,
-    dialCentralOverlay: PATHS.dialCentralOverlay,
   };
   for (const [key, parts] of Object.entries(keyToPath)) {
     const fh = await getFileHandleByPath(dirHandle, parts);
@@ -966,7 +941,6 @@ async function openFolder() {
   const dialMap = parseDialBindings(state.originalTexts.keymap);
   state.layers.forEach(l => { l.dial = dialMap.get(l.name) || dialDefault(); });
   state.dialRadialController = loadDialRadialControllerFlag(state.originalTexts.dialConf);
-  state.dialScrollInvert = loadDialScrollInvert(state.originalTexts.dialCentralOverlay);
 
   document.getElementById('status').textContent = 'フォルダ: ' + dirHandle.name;
   document.getElementById('btn-save').disabled = false;
@@ -1117,11 +1091,6 @@ async function saveAll() {
     let dialConfText = writeDialRadialControllerFlag(state.originalTexts.dialConf, state.dialRadialController);
     state.originalTexts.dialConf = dialConfText;
     await writeFile('dialConf', dialConfText);
-
-    // 4. split-input-hires-dial.overlay (vertical scroll direction, right central)
-    let dialCentralText = writeDialScrollInvert(state.originalTexts.dialCentralOverlay, state.dialScrollInvert);
-    state.originalTexts.dialCentralOverlay = dialCentralText;
-    await writeFile('dialCentralOverlay', dialCentralText);
 
     state.originalTexts.keymap = newKeymapText;
     state.layers.forEach(l => { l.originalName = l.name; });
@@ -1321,17 +1290,8 @@ function renderDialPanel() {
         Windows Radial Controllerを有効にする(<code>CONFIG_ZMK_HIRES_DIAL_RADIAL_CONTROLLER</code>。
         「Radial Controller」モードを使うレイヤーがある場合に必要。再ペアリングが必要になる場合があります)</label>
     </div>
-    <div class="tb-card">
-      <label><input type="checkbox" id="dial-scroll-invert" ${state.dialScrollInvert ? 'checked' : ''}>
-        上下スクロールの回転方向を反転する(「上下スクロール」モードのレイヤーすべてに効きます。
-        エンコーダーやRadial Controllerの向きは変わりません)</label>
-    </div>
     <div id="dial-layer-list"></div>
   `;
-  document.getElementById('dial-scroll-invert').addEventListener('change', e => {
-    state.dialScrollInvert = e.target.checked;
-    setDirty(true);
-  });
   document.getElementById('dial-radial-enable').addEventListener('change', e => {
     state.dialRadialController = e.target.checked;
     setDirty(true);
