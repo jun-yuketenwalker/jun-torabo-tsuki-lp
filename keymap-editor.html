@@ -486,7 +486,10 @@ function findKeymapNodeEnd(keymapText) {
 // layersState: [{ originalName, name, tokens }]. Entries with an `originalName`
 // are matched back to their existing devicetree node (renamed/rebound in place,
 // preserving position + all surrounding text). Entries without `originalName`
-// are brand new layers, appended just before the keymap node's closing brace.
+// are brand new layers, inserted right after the last existing real layer --
+// i.e. still ahead of the `status = "reserved"` placeholders, which must stay
+// last (in Studio builds a real layer declared after a reserved one is left
+// out of the stock layer order, so its keys and dial bindings never fire).
 // Original layers missing from layersState were deleted in the editor, so
 // their whole node is cut out of the text (otherwise they come back on reload).
 function serializeKeymapFull(originalKeymapText, layersState) {
@@ -513,11 +516,14 @@ function serializeKeymapFull(originalKeymapText, layersState) {
 
   const newLayers = layersState.filter(l => !l.originalName);
   if (newLayers.length > 0) {
-    const insertPos = findKeymapNodeEnd(text);
+    const remaining = findLayerBlocks(text);
+    const last = remaining[remaining.length - 1];
+    const lineEnd = text.indexOf('\n', last.blockEnd);
+    const insertPos = lineEnd === -1 ? findKeymapNodeEnd(text) : lineEnd + 1;
     const blocks = newLayers.map(l => {
       if (l.tokens.length !== KEY_COUNT) throw new Error(`new layer ${l.name} must have ${KEY_COUNT} tokens`);
-      return `        ${l.name} {\n            bindings = <${formatBindingsBody(l.tokens)}>;\n        };\n`;
-    }).join('\n');
+      return `\n        ${l.name} {\n            bindings = <${formatBindingsBody(l.tokens)}>;\n        };\n`;
+    }).join('');
     text = text.slice(0, insertPos) + blocks + text.slice(insertPos);
   }
   return text;
@@ -997,44 +1003,63 @@ function countReservedLayers(keymapText) {
 // consumes a slot regardless of where it sits, so a real layer's true
 // compiled index is its position among ALL nodes (real + reserved), not just
 // its position among the real ones. Returns { map, totalCount }, where map
-// is `original layer name -> compiled index` and totalCount is the number of
-// nodes found (used to number brand-new layers, which always get appended
-// after every existing node).
+// is `original layer name -> compiled index`, reservedBefore is `original
+// layer name -> reserved nodes declared ahead of it`, and nextNewNumber /
+// reservedBeforeNew number brand-new layers, which serializeKeymapFull()
+// inserts right after the last existing real layer.
 function computeLayerNumberMap(keymapText) {
   const keymapNodeStart = keymapText.indexOf('keymap {');
   const map = new Map();
-  if (keymapNodeStart === -1) return { map, totalCount: 0 };
+  const reservedBefore = new Map();
+  if (keymapNodeStart === -1) return { map, reservedBefore, totalCount: 0, nextNewNumber: 0, reservedBeforeNew: 0 };
   const nodeRe = /(\w+)\s*\{\s*(?:bindings\s*=\s*<[\s\S]*?>;\s*|status\s*=\s*"reserved";\s*)\}\s*;/g;
   nodeRe.lastIndex = keymapNodeStart;
-  let m, idx = 0;
+  let m, idx = 0, reserved = 0, nextNewNumber = 0, reservedBeforeNew = 0;
   while ((m = nodeRe.exec(keymapText))) {
     map.set(m[1], idx);
+    if (m[0].includes('reserved')) {
+      reserved++;
+    } else {
+      reservedBefore.set(m[1], reserved);
+      nextNewNumber = idx + 1;
+      reservedBeforeNew = reserved;
+    }
     idx++;
   }
-  return { map, totalCount: idx };
+  return { map, reservedBefore, totalCount: idx, nextNewNumber, reservedBeforeNew };
 }
 
 // Compiled layer number for a state.layers entry: looks it up by its
 // *original* devicetree name (stable across renames) via
 // computeLayerNumberMap(); brand-new layers (no originalName) are numbered
-// after every existing node, in the order they were added.
+// after the last existing real layer, in the order they were added.
 function layerDisplayNumber(layer, numberInfo, newLayerIndex) {
   if (layer.originalName && numberInfo.map.has(layer.originalName)) {
     return numberInfo.map.get(layer.originalName);
   }
-  return numberInfo.totalCount + newLayerIndex;
+  return numberInfo.nextNewNumber + newLayerIndex;
 }
 
 // Finds (or creates) the shared "Gesture" layer in state.layers and returns
-// its eventual compiled layer index (declaration order among real layers,
-// plus any reserved placeholder layers that precede it -- see
-// countReservedLayers() above).
+// its eventual compiled layer index: its position among the real layers as
+// they will be saved (so deletions are accounted for), plus any reserved
+// placeholder layers declared ahead of it -- see countReservedLayers() above.
+function savedLayerNumber(idx) {
+  const info = computeLayerNumberMap(state.originalTexts.keymap);
+  const layer = state.layers[idx];
+  const reserved = layer && layer.originalName && info.reservedBefore.has(layer.originalName)
+    ? info.reservedBefore.get(layer.originalName)
+    : info.reservedBeforeNew;
+  return idx + reserved;
+}
+
 function ensureGestureLayer() {
-  const reservedCount = countReservedLayers(state.originalTexts.keymap);
-  const idx = state.layers.findIndex(l => l.name === GESTURE_LAYER_NAME);
-  if (idx !== -1) return idx + reservedCount;
-  state.layers.push({ name: GESTURE_LAYER_NAME, tokens: new Array(KEY_COUNT).fill('&trans') });
-  return state.layers.length - 1 + reservedCount;
+  let idx = state.layers.findIndex(l => l.name === GESTURE_LAYER_NAME);
+  if (idx === -1) {
+    state.layers.push({ name: GESTURE_LAYER_NAME, tokens: new Array(KEY_COUNT).fill('&trans') });
+    idx = state.layers.length - 1;
+  }
+  return savedLayerNumber(idx);
 }
 
 function setDirty(v) {
@@ -1202,9 +1227,8 @@ function renderTrackballPanel() {
  * ========================================================== */
 function renderGesturePanel() {
   const root = document.getElementById('panel-gesture');
-  const reservedCount = countReservedLayers(state.originalTexts.keymap);
   const rawIdx = state.layers.findIndex(l => l.name === GESTURE_LAYER_NAME);
-  const layerIdx = rawIdx === -1 ? state.layers.length + reservedCount : rawIdx + reservedCount;
+  const layerIdx = savedLayerNumber(rawIdx === -1 ? state.layers.length : rawIdx);
   const layerNote = rawIdx === -1
     ? `保存すると新しく「${GESTURE_LAYER_NAME}」というレイヤーが追加されます(現時点ではレイヤー番号 ${layerIdx} になる見込み)。`
     : `「${GESTURE_LAYER_NAME}」レイヤー(レイヤー番号 ${layerIdx})が発動中だけジェスチャーが有効になります。`;
