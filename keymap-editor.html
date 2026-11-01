@@ -1870,7 +1870,7 @@ const NUMBERS = ['N1','N2','N3','N4','N5','N6','N7','N8','N9','N0'];
 const SYMBOLS = ['MINUS','EQUAL','SLASH','COMMA','DOT','SEMI','UNDERSCORE','PLUS','ASTRK','EXCLAMATION','AT','HASH','DOLLAR','PERCENT','AMPS','COLON','LEFT_PARENTHESIS','RIGHT_PARENTHESIS','LEFT_BRACKET','RIGHT_BRACKET','LEFT_BRACE','RIGHT_BRACE','KP_MULTIPLY'];
 const FUNCTION_KEYS = Array.from({length:24}, (_, i) => 'F' + (i+1));
 const SPECIAL_KEYS = ['LCTRL','LGUI','LALT','LSHIFT','RCTRL','RGUI','RALT','RSHIFT','TAB','BACKSPACE','ENTER','SPACE','ESC','DELETE','PRINTSCREEN','LANGUAGE_2','LANG4'];
-const NAV_KEYS = ['UP_ARROW','DOWN','LEFT','RIGHT_ARROW','LEFT_ARROW','HOME','END'];
+const NAV_KEYS = ['UP_ARROW','DOWN_ARROW','LEFT_ARROW','RIGHT_ARROW','HOME','END'];
 const MEDIA_KEYS = ['C_VOLUME_UP','C_VOL_DN','C_AC_SCROLL_UP','C_AC_SCROLL_DOWN'];
 
 // RAW tab's key-combo builder: click modifier buttons to nest &kp wrapper
@@ -1980,6 +1980,9 @@ const SYMBOL_DISPLAY = {
   APOSTROPHE: "'", SINGLE_QUOTE: "'", GRAVE: '`', TILDE: '~',
   BACKSLASH: '\\', PIPE: '|', LESS_THAN: '<', GREATER_THAN: '>',
   QUESTION: '?', CARET: '^', DOUBLE_QUOTES: '"',
+  // 矢印キーも名前ではなく記号で表示(UP/DOWN/LEFT/RIGHT は ZMK の別名)
+  UP_ARROW: '↑', DOWN_ARROW: '↓', LEFT_ARROW: '←', RIGHT_ARROW: '→',
+  UP: '↑', DOWN: '↓', LEFT: '←', RIGHT: '→',
 };
 
 function renderPickerBody() {
