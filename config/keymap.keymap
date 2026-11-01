@@ -56,6 +56,7 @@
         layer12_mo_low {
             bindings = <&mo 12>;
             key-positions = <35 36>;
+            timeout-ms = <80>;
         };
     };
 
