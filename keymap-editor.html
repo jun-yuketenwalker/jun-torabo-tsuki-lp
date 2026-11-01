@@ -416,6 +416,7 @@ function findLayerBlocks(keymapText) {
     layers.push({
       name,
       tokens: tokenizeBindings(bindingsBody),
+      blockEnd: m.index + full.length,
       nameStart: m.index,
       nameEnd: m.index + name.length,
       bindingsBodyStart: bodyStart,
@@ -458,6 +459,18 @@ function serializeKeymap(originalKeymapText, editedLayersByName) {
   return text;
 }
 
+// Cuts a layer node out whole lines at a time: its indentation, the node, the
+// rest of its closing line, and one blank separator line before it if present.
+function removeLayerBlock(text, start, end) {
+  let from = text.lastIndexOf('\n', start - 1) + 1;
+  if (text.slice(from, start).trim() !== '') from = start;
+  let to = text.indexOf('\n', end);
+  to = to === -1 || text.slice(end, to).trim() !== '' ? end : to + 1;
+  const prevLineStart = text.lastIndexOf('\n', from - 2) + 1;
+  if (from > 0 && text.slice(prevLineStart, from).trim() === '') from = prevLineStart;
+  return text.slice(0, from) + text.slice(to);
+}
+
 function findKeymapNodeEnd(keymapText) {
   const idx = keymapText.indexOf('keymap {');
   if (idx === -1) throw new Error('keymap { ... } node not found');
@@ -474,6 +487,8 @@ function findKeymapNodeEnd(keymapText) {
 // are matched back to their existing devicetree node (renamed/rebound in place,
 // preserving position + all surrounding text). Entries without `originalName`
 // are brand new layers, appended just before the keymap node's closing brace.
+// Original layers missing from layersState were deleted in the editor, so
+// their whole node is cut out of the text (otherwise they come back on reload).
 function serializeKeymapFull(originalKeymapText, layersState) {
   const originalLayers = findLayerBlocks(originalKeymapText);
   const byOriginalName = new Map();
@@ -483,7 +498,10 @@ function serializeKeymapFull(originalKeymapText, layersState) {
   for (let i = originalLayers.length - 1; i >= 0; i--) {
     const orig = originalLayers[i];
     const edited = byOriginalName.get(orig.name);
-    if (!edited) continue;
+    if (!edited) {
+      text = removeLayerBlock(text, orig.nameStart, orig.blockEnd);
+      continue;
+    }
     if (edited.tokens.length !== KEY_COUNT) throw new Error(`layer ${orig.name} must have ${KEY_COUNT} tokens`);
     const newBody = formatBindingsBody(edited.tokens);
     if (edited.name !== orig.name) {
