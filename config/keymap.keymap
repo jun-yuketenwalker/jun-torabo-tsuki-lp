@@ -58,6 +58,11 @@
             key-positions = <35 36>;
             timeout-ms = <80>;
         };
+
+        layer_13mo {
+            bindings = <&mo 13>;
+            key-positions = <56 57>;
+        };
     };
 
     macros {
@@ -209,6 +214,16 @@
 &trans
         >;
         };
+        Clip_studio {
+            bindings = <
+&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
+&trans
+        >;
+        };
 };
 };
 
@@ -216,5 +231,6 @@
 &{/keymap/layer_0} { sensor-bindings = <&hires_dial_scroll 64 1>; };
 &{/keymap/Kigou} { sensor-bindings = <&hires_dial_encoder SEMI MINUS>; };
 &{/keymap/YOBI} { sensor-bindings = <&hires_dial_encoder RIGHT_BRACKET LEFT_BRACKET>; };
+&{/keymap/Clip_studio} { sensor-bindings = <&hires_dial_encoder LA(LEFT_BRACKET) LA(RIGHT_BRACKET)>; };
 /* === keymap-editor: end dial sensor-bindings === */
 
