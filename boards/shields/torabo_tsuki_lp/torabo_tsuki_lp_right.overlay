@@ -53,7 +53,7 @@
         compatible = "zmk,input-processor-keybind";
         #input-processor-cells = <0>;
         mode = <1>;
-        bindings = <&kp RIGHT>, <&kp LEFT>, <&kp UP>, <&kp DOWN>;
+        bindings = <&kp LC(LG(RIGHT_ARROW))>, <&kp LC(LG(LEFT_ARROW))>, <&kp LG(TAB)>, <&kp LG(D)>;
         tick = <60>;
         tap-ms = <10>;
     };
