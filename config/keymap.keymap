@@ -52,6 +52,11 @@
             bindings = <&mo 12>;
             key-positions = <21 22>;
         };
+
+        layer12_mo_low {
+            bindings = <&mo 12>;
+            key-positions = <35 36>;
+        };
     };
 
     macros {
@@ -105,9 +110,9 @@
         Kigou {
             bindings = <
 &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
-&trans  &kp F9  &kp F10  &kp F11  &kp F12  &kp LEFT_BRACE  &kp RIGHT_BRACE  &kp EXCLAMATION  &kp AT  &kp HASH  &kp DOLLAR  &trans
-&trans  &kp F5  &kp F6  &kp F7  &kp F8  &kp LEFT_BRACKET  &trans  &trans  &kp RIGHT_BRACKET  &kp PERCENT  &kp AMPS  &kp COLON  &kp SEMI  &trans
-&trans  &kp F1  &kp F2  &kp F3  &kp F4  &kp LEFT_PARENTHESIS  &kp ESC  &trans  &kp RIGHT_PARENTHESIS  &kp UNDERSCORE  &kp ASTRK  &trans  &trans  &trans
+&trans  &kp F12  &kp F7  &kp F8  &kp F9  &kp LEFT_BRACE  &kp RIGHT_BRACE  &kp EXCLAMATION  &kp AT  &kp HASH  &kp DOLLAR  &trans
+&trans  &kp F11  &kp F4  &kp F5  &kp F6  &kp LEFT_BRACKET  &trans  &trans  &kp RIGHT_BRACKET  &kp PERCENT  &kp AMPS  &kp COLON  &kp SEMI  &trans
+&trans  &kp F10  &kp F1  &kp F2  &kp F3  &kp LEFT_PARENTHESIS  &kp ESC  &trans  &kp RIGHT_PARENTHESIS  &kp UNDERSCORE  &kp ASTRK  &trans  &trans  &trans
 &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
 &kp LC(LS(R))
         >;
@@ -207,7 +212,7 @@
 };
 
 /* === keymap-editor: dial sensor-bindings (auto-generated, safe to regenerate) === */
-&{/keymap/layer_0} { sensor-bindings = <&hires_dial_scroll 85 1>; };
+&{/keymap/layer_0} { sensor-bindings = <&hires_dial_scroll 64 1>; };
 &{/keymap/Kigou} { sensor-bindings = <&hires_dial_encoder SEMI MINUS>; };
 &{/keymap/YOBI} { sensor-bindings = <&hires_dial_encoder RIGHT_BRACKET LEFT_BRACKET>; };
 /* === keymap-editor: end dial sensor-bindings === */
