@@ -1297,12 +1297,16 @@ function renderDialPanel() {
   });
 
   const list = document.getElementById('dial-layer-list');
+  const numberInfo = computeLayerNumberMap(state.originalTexts.keymap);
+  let newLayerIndex = 0;
   state.layers.forEach((layer, idx) => {
+    const num = layerDisplayNumber(layer, numberInfo, newLayerIndex);
+    if (!layer.originalName || !numberInfo.map.has(layer.originalName)) newLayerIndex++;
     const dial = ensureLayerDial(layer);
     const card = document.createElement('div');
     card.className = 'tb-card';
     card.innerHTML = `
-      <h3>${layer.name}</h3>
+      <h3>${num}: ${layer.name}</h3>
       <div class="row" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
         <label>回転の動作:</label>
         <select class="dial-mode-select">
