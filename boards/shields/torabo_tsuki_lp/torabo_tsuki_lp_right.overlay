@@ -54,7 +54,7 @@
         #input-processor-cells = <0>;
         mode = <1>;
         bindings = <&kp LC(LG(LEFT_ARROW))>, <&kp LC(LG(RIGHT_ARROW))>, <&kp LG(D)>, <&kp LG(TAB)>;
-        tick = <80>;
+        tick = <100>;
         tap-ms = <10>;
     };
 };
