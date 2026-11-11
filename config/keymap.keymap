@@ -50,13 +50,7 @@
 
         layer9_mo {
             bindings = <&mo 9>;
-            key-positions = <21 22>;
-        };
-
-        layer9_mo_low {
-            bindings = <&mo 9>;
-            key-positions = <35 36>;
-            timeout-ms = <80>;
+            key-positions = <22 36>;
         };
 
         layer10_mo {
@@ -195,8 +189,8 @@
 &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
 &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
 &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
-&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &kp LS(LG(LEFT_ARROW))  &kp LS(LG(RIGHT_ARROW))  &trans  &trans  &trans
 &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans  &trans  &kp LS(LG(LEFT_ARROW))  &kp LS(LG(RIGHT_ARROW))  &trans  &trans  &trans  &trans  &trans
 &trans
         >;
         };
